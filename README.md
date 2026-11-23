@@ -1,11 +1,34 @@
-<div align="center">
+# KATA: Ink & Echo 🥋
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+A minimalist 2D fighting game in the spirit of Shadow Fight, drawn as ink-brush
+silhouettes on rice paper. Everything (graphics, animation, audio) is generated
+in code: one HTML file, no assets, no dependencies.
 
-  <h1>Built with AI Studio</h2>
+## Highlights
+- **Procedural skeletal animation**: poses blend with easing, with anticipation,
+  strike and recovery phases, hit-stop, afterimages, slash trails and cloth physics
+- **Echo system**: your inputs are recorded, and the final boss of each chapter
+  fights using your own habits and tempo
+- **3 stances** (Crane, Tiger, Serpent) with bonus damage for weaving between them
+- **Skill constellation**: unlock and equip martial arts skills with spirit points
+- **8 playable fighters** with distinct weapons, stats and passives
+- **Modes**: Story, Training Dojo, local 2-player Versus
+- **Synthesized audio** via the Web Audio API
+- Keyboard and touch controls, progress saved in localStorage
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Controls
+| Action | Key |
+|---|---|
+| Move / jump | A D / W |
+| Light / heavy attack | J / K |
+| Block (tap just before impact to parry) | L |
+| Dash | Space |
+| Skills | U I O |
+| Stances | 1 2 3 |
+| Pause / mute / shake | Esc / M / V |
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Run
+Open `index.html` in any modern browser.
 
-</div>
+## License
+MIT
