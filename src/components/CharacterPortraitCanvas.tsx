@@ -8,16 +8,21 @@ import { ActionKind } from '../game/types';
 
 interface CharacterPortraitCanvasProps {
   characterId: string;
+  equippedWeaponId?: string;
   darkMode: boolean;
   animated?: boolean;
   facing?: 1 | -1;
-  previewAction?: { kind: 'light' | 'heavy' | 'skill_0' | 'skill_1' | 'skill_2' | 'ultimate'; key: number } | null;
+  previewAction?: {
+    kind: 'light' | 'heavy' | 'kick' | 'kick_combo' | 'skill_0' | 'skill_1' | 'skill_2' | 'ultimate';
+    key: number;
+  } | null;
   zoom?: number;
   className?: string;
 }
 
 export const CharacterPortraitCanvas: React.FC<CharacterPortraitCanvasProps> = ({
   characterId,
+  equippedWeaponId = 'default',
   darkMode,
   animated = false,
   facing = 1,
@@ -45,10 +50,11 @@ export const CharacterPortraitCanvas: React.FC<CharacterPortraitCanvasProps> = (
       ],
       accentColor: getCharacterConfig(characterId).accentColor,
       isEcho: characterId === 'echo',
+      equippedWeaponId,
     }),
   );
 
-  // Rebuild fighter when characterId or facing changes
+  // Rebuild fighter when characterId, facing, or equippedWeaponId changes
   useEffect(() => {
     const char = getCharacterConfig(characterId);
     fighterRef.current = createFighter({
@@ -64,8 +70,9 @@ export const CharacterPortraitCanvas: React.FC<CharacterPortraitCanvasProps> = (
       equippedSkills: [char.skills[0].id, char.skills[1].id, char.skills[2].id],
       accentColor: char.accentColor,
       isEcho: characterId === 'echo',
+      equippedWeaponId,
     });
-  }, [characterId, facing]);
+  }, [characterId, facing, equippedWeaponId]);
 
   // Trigger move preview animation cleanly
   useEffect(() => {
@@ -113,13 +120,21 @@ export const CharacterPortraitCanvas: React.FC<CharacterPortraitCanvasProps> = (
           f.currentMove.recovery;
         const sTime = f.currentMove.startup * STANCE_META[f.stance].startupMult;
         if (f.actionTimer >= sTime && f.actionTimer <= sTime + f.currentMove.active) {
-          const pt = f.weaponTip ?? f.joints.handR;
+          const limb = f.currentMove.activeLimb;
+          const pt =
+            limb === 'footR' || limb === 'bothFeet'
+              ? f.joints.footR
+              : limb === 'footL'
+                ? f.joints.footL
+                : limb === 'weaponTip'
+                  ? f.weaponTip ?? f.joints.handR
+                  : f.joints.handR;
           f.slashTrail.push({
             x: pt.x,
             y: pt.y,
             alpha: 1,
-            width: f.currentMove.kind === 'ultimate' ? 14 : 9,
-            color: f.accentColor,
+            width: f.currentMove.kind === 'ultimate' ? 14 : f.currentMove.spinArc ? 11 : 9,
+            color: f.currentMove.inkColor ?? f.accentColor,
             style: f.currentMove.trailStyle,
           });
           if (f.slashTrail.length > 12) f.slashTrail.shift();
@@ -159,7 +174,7 @@ export const CharacterPortraitCanvas: React.FC<CharacterPortraitCanvasProps> = (
     };
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
-  }, [characterId, darkMode, animated, facing, zoom]);
+  }, [characterId, equippedWeaponId, darkMode, animated, facing, zoom]);
 
   return <canvas ref={canvasRef} className={className} />;
 };

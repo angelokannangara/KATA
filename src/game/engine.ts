@@ -22,6 +22,7 @@ import { CHAPTERS, CONFIG, SKILL_MAP, STANCE_META } from './config';
 import { EchoRecorder } from './echo';
 import { InkRenderer } from './renderer';
 import { persistSaveData, unlockChapterRewardCharacters } from './save';
+import { getWeaponItem } from './weapons';
 import {
   ActionKind,
   EchoRecordedToken,
@@ -44,6 +45,7 @@ interface BufferedAction {
   kind:
     | 'light'
     | 'heavy'
+    | 'kick'
     | 'dash'
     | 'jump'
     | 'block'
@@ -204,6 +206,7 @@ export class GameEngine {
     soundEngine.setVolume(this.save.settings.volume);
     soundEngine.setMusicEnabled(this.save.settings.musicEnabled);
     if (this.p1 && !this.p1.isAI) {
+      this.p1.equippedWeaponId = this.save.equippedWeaponId || 'default';
       this.p1.equippedSkills = [...this.getEquippedSkillsForCharacter(this.p1CharacterId)] as [
         string,
         string,
@@ -308,6 +311,7 @@ export class GameEngine {
       stance: p1Char.signatureStance,
       equippedSkills: this.getEquippedSkillsForCharacter(p1Char.id),
       accentColor: p1Char.accentColor,
+      equippedWeaponId: this.save.equippedWeaponId || 'default',
     });
     this.p2 = createFighter({
       id: 2,
@@ -344,6 +348,7 @@ export class GameEngine {
       stance: p1Char.signatureStance,
       equippedSkills: this.getEquippedSkillsForCharacter(p1Char.id),
       accentColor: p1Char.accentColor,
+      equippedWeaponId: this.save.equippedWeaponId || 'default',
     });
 
     if (this.mode === 'dojo') {
@@ -452,6 +457,7 @@ export class GameEngine {
     action:
       | 'light'
       | 'heavy'
+      | 'kick'
       | 'dash'
       | 'block_down'
       | 'block_up'
@@ -501,6 +507,7 @@ export class GameEngine {
     // P1 edge-triggered actions (KeyP triggers Character Ultimate!)
     if (code === 'KeyJ') this.pushBuffer(this.p1Buffer, 'light');
     else if (code === 'KeyK') this.pushBuffer(this.p1Buffer, 'heavy');
+    else if (code === 'KeyF') this.pushBuffer(this.p1Buffer, 'kick');
     else if (code === 'Space') this.pushBuffer(this.p1Buffer, 'dash');
     else if (code === 'KeyW') this.pushBuffer(this.p1Buffer, 'jump');
     else if (code === 'KeyL') this.pushBuffer(this.p1Buffer, 'block');
@@ -518,6 +525,7 @@ export class GameEngine {
     if (this.mode === 'versus') {
       if (code === 'KeyN' || code === 'Numpad1') this.pushBuffer(this.p2Buffer, 'light');
       else if (code === 'KeyM' || code === 'Numpad2') this.pushBuffer(this.p2Buffer, 'heavy');
+      else if (code === 'KeyB' || code === 'Backslash') this.pushBuffer(this.p2Buffer, 'kick');
       else if (code === 'Slash' || code === 'Numpad0') this.pushBuffer(this.p2Buffer, 'dash');
       else if (code === 'ArrowUp') this.pushBuffer(this.p2Buffer, 'jump');
       else if (code === 'Comma' || code === 'Numpad3') this.pushBuffer(this.p2Buffer, 'block');
@@ -589,6 +597,7 @@ export class GameEngine {
       const item = buf.shift()!;
       if (item.kind === 'light') snap.justLight = true;
       else if (item.kind === 'heavy') snap.justHeavy = true;
+      else if (item.kind === 'kick') snap.justKick = true;
       else if (item.kind === 'dash') snap.justDash = true;
       else if (item.kind === 'jump') snap.justJump = true;
       else if (item.kind === 'block') snap.justBlock = true;
@@ -879,6 +888,16 @@ export class GameEngine {
       if (canChain) {
         if (this.tryStartUltimate(f, opp, input, isP1)) return;
         if (this.tryStartSkill(f, opp, input, isP1)) return;
+        if (
+          input.justKick &&
+          f.action !== 'kick_combo' &&
+          (f.currentMove.kind === 'light' ||
+            f.currentMove.kind === 'heavy' ||
+            f.currentMove.kind === 'kick')
+        ) {
+          this.startMove(f, 'kick_combo', isP1);
+          return;
+        }
         if (input.justHeavy && f.currentMove.kind === 'light') {
           this.startMove(f, 'heavy', isP1);
           return;
@@ -930,6 +949,20 @@ export class GameEngine {
       });
       this.pushAfterimage(f, f.accentColor);
       if (isP1) this.recordEcho(movingBack ? 'D_BACK' : 'D_FWD');
+      return;
+    }
+
+    // Fancy Kicks (F)
+    if (input.justKick) {
+      if (!f.grounded) {
+        this.startMove(f, 'air_kick', isP1);
+        return;
+      }
+      if (input.down) {
+        this.startMove(f, 'crouch_kick', isP1);
+        return;
+      }
+      this.startMove(f, 'kick', isP1);
       return;
     }
 
@@ -1085,19 +1118,31 @@ export class GameEngine {
 
   private startMove(
     f: FighterState,
-    kind: 'light' | 'heavy' | 'crouch' | 'air',
+    kind: 'light' | 'heavy' | 'kick' | 'kick_combo' | 'crouch_kick' | 'air_kick' | 'crouch' | 'air',
     isP1: boolean,
   ): void {
     const move = getMoveForAction(f, kind);
     if (!move) return;
     const actionKind: ActionKind =
-      kind === 'crouch' ? 'crouch_attack' : kind === 'air' ? 'air_attack' : kind;
+      kind === 'crouch' || kind === 'crouch_kick'
+        ? 'crouch_attack'
+        : kind === 'air' || kind === 'air_kick'
+          ? 'air_attack'
+          : kind;
     const opp = f.id === 1 ? this.p2 : this.p1;
     this.beginMove(f, opp, move, actionKind, isP1);
 
     if (isP1) {
       const tok: EchoRecordedToken =
-        kind === 'light' ? 'L' : kind === 'heavy' ? 'H' : kind === 'crouch' ? 'C' : 'A';
+        kind === 'kick' || kind === 'kick_combo' || kind === 'crouch_kick' || kind === 'air_kick'
+          ? 'FK'
+          : kind === 'light'
+            ? 'L'
+            : kind === 'heavy'
+              ? 'H'
+              : kind === 'crouch'
+                ? 'C'
+                : 'A';
       this.recordEcho(tok);
     }
   }
@@ -1166,12 +1211,12 @@ export class GameEngine {
       f.grounded = false;
     }
 
-    if (move.kind === 'skill' || move.kind === 'ultimate') {
+    if (move.kind === 'skill' || move.kind === 'ultimate' || actionKind === 'kick_combo') {
       soundEngine.playSkillTrigger();
       this.renderer.spawnRing(f.x, f.y - 60, move.inkColor ?? char.accentColor, 14);
       this.pushAfterimage(f, move.inkColor ?? char.accentColor);
     } else {
-      soundEngine.playWhoosh(move.kind === 'heavy');
+      soundEngine.playWhoosh(move.kind === 'heavy' || move.kind === 'kick');
     }
 
     if (isP1) {
@@ -1213,7 +1258,7 @@ export class GameEngine {
       const pt =
         limb === 'weaponTip'
           ? f.weaponTip ?? j.handR
-          : limb === 'footR'
+          : limb === 'footR' || limb === 'bothFeet'
             ? j.footR
             : limb === 'footL'
               ? j.footL
@@ -1230,13 +1275,19 @@ export class GameEngine {
         width:
           f.currentMove.kind === 'ultimate'
             ? 16
-            : f.currentMove.kind === 'heavy' || f.currentMove.kind === 'skill'
+            : f.currentMove.kind === 'heavy' ||
+                f.currentMove.kind === 'skill' ||
+                f.currentMove.spinArc
               ? 11
               : 6,
         color,
         style: f.currentMove.trailStyle ?? char.trailStyle,
       });
       if (f.slashTrail.length > 14) f.slashTrail.shift();
+
+      if (f.currentMove.spinArc && Math.random() < 0.35) {
+        this.pushAfterimage(f, color);
+      }
 
       if (
         (f.currentMove.kind === 'skill' || f.currentMove.kind === 'ultimate') &&
@@ -1659,6 +1710,15 @@ export class GameEngine {
     const comboSP = this.matchMaxCombo >= CONFIG.spComboThreshold ? CONFIG.spComboBonus : 0;
     const totalSP = this.mode === 'versus' ? 0 : winSP + parrySP + noDmgSP + comboSP;
 
+    const winCoins =
+      winner === 1
+        ? CONFIG.coinsWinBase + (isChapterClear ? CONFIG.coinsChapterBonus : 0)
+        : 15;
+    const styleCoins =
+      this.matchPerfectParries * CONFIG.coinsPerPerfectParry +
+      (this.matchMaxCombo >= CONFIG.spComboThreshold ? CONFIG.coinsComboBonus : 0);
+    const totalCoins = this.mode === 'versus' ? 0 : winCoins + styleCoins;
+
     const updatedEchoEvents = this.echoRecorder.getEvents();
     const updatedProfile = this.echoRecorder.analyze();
 
@@ -1688,6 +1748,7 @@ export class GameEngine {
     this.save = {
       ...this.save,
       spiritPoints: this.save.spiritPoints + totalSP,
+      coins: this.save.coins + totalCoins,
       unlockedCharacters,
       currentChapter: nextChapter,
       currentDuel: nextDuel,
@@ -1721,6 +1782,11 @@ export class GameEngine {
         noDamage: noDmgSP,
         comboBonus: comboSP,
         total: totalSP,
+      },
+      coinsEarned: {
+        win: this.mode === 'versus' ? 0 : winCoins,
+        style: this.mode === 'versus' ? 0 : styleCoins,
+        total: totalCoins,
       },
       isChapterClear,
       isCampaignComplete,
@@ -1814,6 +1880,7 @@ export class GameEngine {
         ultimateName: p1Char.ultimate.name,
         ultimateCost: p1Char.ultimate.flowCost,
         counterActive: this.p1.counterWindowTimer > 0,
+        equippedWeaponName: getWeaponItem(this.p1.equippedWeaponId).name,
       },
       p2: {
         characterId: this.p2.characterId,

@@ -14,6 +14,7 @@ import {
   Pose,
   ScarfNode,
 } from './types';
+import { resolveFighterWeapon } from './weapons';
 
 export function applyEasing(t: number, curve: EasingName): number {
   const x = Math.max(0, Math.min(1, t));
@@ -95,6 +96,8 @@ export function computeTargetPose(fighter: FighterState): Pose {
     fighter.currentMove &&
     (fighter.action === 'light' ||
       fighter.action === 'heavy' ||
+      fighter.action === 'kick' ||
+      fighter.action === 'kick_combo' ||
       fighter.action === 'crouch_attack' ||
       fighter.action === 'air_attack' ||
       fighter.action === 'skill_0' ||
@@ -117,7 +120,15 @@ export function computeTargetPose(fighter: FighterState): Pose {
       const localT = (t - sTime) / Math.max(0.01, aTime);
       const k = applyEasing(Math.min(1, localT * 1.45), move.easingIn);
       const pose = lerpPose(move.anticipationPose, move.strikePose, k);
-      if ((move.multiHitCount ?? 1) > 1) {
+      if (move.spinArc) {
+        // Dynamic sweeping whirl of hips, torso, and kicking leg across the active arc
+        const spinWave = Math.sin(localT * Math.PI * (move.activeLimb === 'bothFeet' ? 3 : 2));
+        pose.hipR += spinWave * 0.48;
+        pose.hipL -= spinWave * 0.52;
+        pose.torsoAngle += Math.cos(localT * Math.PI * 2) * 0.18;
+        pose.shoulderL += spinWave * 0.45;
+        pose.shoulderR -= spinWave * 0.45;
+      } else if ((move.multiHitCount ?? 1) > 1) {
         const osc = Math.sin(localT * Math.PI * (move.multiHitCount ?? 2) * 2);
         pose.shoulderR += osc * 0.45;
         pose.shoulderL -= osc * 0.45;
@@ -439,6 +450,8 @@ export function updateScarfPhysics(fighter: FighterState, dt: number): void {
  */
 export function updateWeaponTransform(fighter: FighterState, dt: number): void {
   const char = getCharacterConfig(fighter.characterId);
+  const resolved = resolveFighterWeapon(char, fighter.equippedWeaponId);
+  const weaponCfg = resolved.weaponConfig;
   const j = fighter.joints;
   const hand = j.handR;
   const elbow = j.elbowR;
@@ -453,6 +466,8 @@ export function updateWeaponTransform(fighter: FighterState, dt: number): void {
     fighter.currentMove !== null &&
     (fighter.action === 'light' ||
       fighter.action === 'heavy' ||
+      fighter.action === 'kick' ||
+      fighter.action === 'kick_combo' ||
       fighter.action === 'crouch_attack' ||
       fighter.action === 'air_attack' ||
       fighter.action === 'skill_0' ||
@@ -462,9 +477,9 @@ export function updateWeaponTransform(fighter: FighterState, dt: number): void {
 
   let bladeAngle = forearmAngle;
   const reachMult = char.basicReach;
-  const rawLen = char.weapon.length * (0.9 + reachMult * 0.12);
+  const rawLen = weaponCfg.length * (0.9 + reachMult * 0.12);
 
-  if (char.weapon.kind === 'katana') {
+  if (weaponCfg.kind === 'katana') {
     // Katana angles gracefully upward at rest and extends forward during draws/cuts
     if (isAttacking) {
       bladeAngle = forearmAngle - fighter.facing * 0.25;
@@ -473,19 +488,19 @@ export function updateWeaponTransform(fighter: FighterState, dt: number): void {
     } else {
       bladeAngle = forearmAngle - fighter.facing * 0.65;
     }
-  } else if (char.weapon.kind === 'odachi') {
+  } else if (weaponCfg.kind === 'odachi') {
     if (isAttacking) {
       bladeAngle = forearmAngle - fighter.facing * 0.15;
     } else {
       // Rested backward over shoulder on idle
       bladeAngle = fighter.facing === 1 ? -Math.PI * 0.78 : -Math.PI * 0.22;
     }
-  } else if (char.weapon.kind === 'naginata' || char.weapon.kind === 'staff') {
+  } else if (weaponCfg.kind === 'naginata' || weaponCfg.kind === 'staff') {
     bladeAngle = isAttacking ? forearmAngle : forearmAngle - fighter.facing * 0.85;
-  } else if (char.weapon.kind === 'bow') {
+  } else if (weaponCfg.kind === 'bow') {
     // Bow held vertically in front hand
     bladeAngle = fighter.facing === 1 ? -Math.PI * 0.08 : Math.PI * 1.08;
-  } else if (char.weapon.kind === 'war_fan') {
+  } else if (weaponCfg.kind === 'war_fan') {
     bladeAngle = forearmAngle - fighter.facing * 0.2;
   } else {
     bladeAngle = forearmAngle;
@@ -502,7 +517,7 @@ export function updateWeaponTransform(fighter: FighterState, dt: number): void {
   fighter.weaponAngle = bladeAngle;
 
   // Kusarigama animated weighted chain spring target
-  if (char.weapon.kind === 'kusarigama') {
+  if (weaponCfg.kind === 'kusarigama') {
     let targetX = j.handL.x - fighter.facing * 18;
     let targetY = j.handL.y + 28 + Math.sin(fighter.animTime * 4) * 5;
     if (isAttacking && fighter.currentMove?.pullsOpponent) {

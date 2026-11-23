@@ -22,6 +22,7 @@ export function emptyInput(): InputSnapshot {
     block: false,
     justLight: false,
     justHeavy: false,
+    justKick: false,
     justDash: false,
     justJump: false,
     justBlock: false,
@@ -45,6 +46,8 @@ function mapEchoTokenToQueue(
       return 'light';
     case 'H':
       return 'heavy';
+    case 'FK':
+      return 'kick';
     case 'C':
       return 'crouch';
     case 'A':
@@ -173,6 +176,9 @@ export function computeAIInput(params: {
           break;
         case 'heavy':
           if (dist < strikeReach + 25) input.justHeavy = true;
+          break;
+        case 'kick':
+          if (dist < strikeReach + 18) input.justKick = true;
           break;
         case 'crouch':
           input.down = true;
@@ -333,15 +339,17 @@ export function computeAIInput(params: {
         if (rng() < aggroBias * (0.65 + difficulty * 0.45)) {
           ai.aiState = 'pressure';
           const roll = rng();
-          if (roll < 0.36) {
+          if (roll < 0.28) {
             ai.aiComboQueue = ['light', 'heavy'];
-          } else if (roll < 0.62) {
+          } else if (roll < 0.48) {
+            ai.aiComboQueue = ['light', 'kick'];
+          } else if (roll < 0.68) {
             ai.aiComboQueue = ['light', 'crouch'];
-          } else if (roll < 0.82 && ai.flow >= 22) {
+          } else if (roll < 0.86 && ai.flow >= 22) {
             const sk = rng() < 0.34 ? 'skill_0' : rng() < 0.67 ? 'skill_1' : 'skill_2';
             ai.aiComboQueue = ['light', sk];
           } else {
-            ai.aiComboQueue = ['stance', 'heavy'];
+            ai.aiComboQueue = ['stance', 'kick'];
           }
           ai.aiTimer = 0.06;
         } else if (ai.personality === 'trickster' && rng() < 0.5) {

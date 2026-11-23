@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArmoryModal } from './components/ArmoryModal';
 import { BattleHUD } from './components/BattleHUD';
 import { CharacterSelectModal } from './components/CharacterSelectModal';
 import { MatchOverModal, PauseModal } from './components/Overlays';
@@ -15,8 +16,11 @@ import { getCharacterConfig } from './game/characters';
 import { CHAPTERS } from './game/config';
 import { GameEngine } from './game/engine';
 import {
+  buyWeapon,
   equipSkillToSlot,
+  equipWeapon,
   loadSaveData,
+  markPrologueSeen,
   selectCharacter,
   unlockCharacter,
   unlockSkill,
@@ -47,11 +51,15 @@ export default function App() {
   const [save, setSave] = useState<SaveData>(() => loadSaveData());
   const [screen, setScreen] = useState<GameScreen>('title');
   const [pendingMode, setPendingMode] = useState<GameMode>('chapter');
+  const [isPrologueMode, setIsPrologueMode] = useState(false);
   const [matchup, setMatchup] = useState<PendingMatchup | null>(null);
   const [showTitleSettings, setShowTitleSettings] = useState(false);
   const [skillTreeReturnTo, setSkillTreeReturnTo] = useState<'title' | 'story_card' | 'match_over'>(
     'title',
   );
+  const [armoryReturnTo, setArmoryReturnTo] = useState<
+    'title' | 'character_select' | 'story_card' | 'match_over'
+  >('title');
   const [hud, setHud] = useState<HUDState | null>(null);
 
   const syncScreen = useCallback((next: GameScreen) => {
@@ -130,31 +138,73 @@ export default function App() {
     [save.currentChapter, save.currentDuel],
   );
 
-  const handleOpenCharacterSelect = useCallback((mode: GameMode) => {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    setShowTitleSettings(false);
-    setPendingMode(mode);
+  const handleOpenCharacterSelect = useCallback(
+    (mode: GameMode) => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      setShowTitleSettings(false);
+      setPendingMode(mode);
+      syncScreen('character_select');
+    },
+    [syncScreen],
+  );
+
+  const handleStartModeFromTitle = useCallback(
+    (mode: GameMode) => {
+      if (mode === 'chapter' && !save.hasSeenPrologue) {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        setShowTitleSettings(false);
+        setPendingMode('chapter');
+        setIsPrologueMode(true);
+        syncScreen('story_card');
+        return;
+      }
+      handleOpenCharacterSelect(mode);
+    },
+    [save.hasSeenPrologue, handleOpenCharacterSelect, syncScreen],
+  );
+
+  const handleFinishPrologue = useCallback(() => {
+    setSave((prev) => {
+      const next = markPrologueSeen(prev);
+      engineRef.current?.updateSave(next);
+      return next;
+    });
+    setIsPrologueMode(false);
+    setPendingMode('chapter');
     syncScreen('character_select');
   }, [syncScreen]);
 
-  const handleLockInCharacter = useCallback(
-    (p1CharId: string, explicitP2Id?: string) => {
+  const openChapterVSSplash = useCallback(
+    (p1CharId: string) => {
       const chapter = CHAPTERS[save.currentChapter] ?? CHAPTERS[0];
       const duel = chapter.duels[save.currentDuel] ?? chapter.duels[0];
+      const p2CharId = duel.isEcho ? p1CharId : duel.characterId;
+      setMatchup({
+        mode: 'chapter',
+        p1CharId,
+        p2CharId,
+        p2Name: duel.name,
+        p2Title: duel.title,
+        isEcho: duel.isEcho,
+      });
+      syncScreen('vs_splash');
+    },
+    [save.currentChapter, save.currentDuel, syncScreen],
+  );
 
+  const handleLockInCharacter = useCallback(
+    (p1CharId: string, explicitP2Id?: string) => {
       if (pendingMode === 'chapter') {
-        const p2CharId = duel.isEcho ? p1CharId : duel.characterId;
-        setMatchup({
-          mode: 'chapter',
-          p1CharId,
-          p2CharId,
-          p2Name: duel.name,
-          p2Title: duel.title,
-          isEcho: duel.isEcho,
-        });
-      } else if (pendingMode === 'versus') {
+        setIsPrologueMode(false);
+        syncScreen('story_card');
+        return;
+      }
+
+      if (pendingMode === 'versus') {
         const p2CharId = explicitP2Id ?? (p1CharId === 'tomoe' ? 'kenshin' : 'tomoe');
         const p2Cfg = getCharacterConfig(p2CharId);
         setMatchup({
@@ -179,7 +229,7 @@ export default function App() {
       }
       syncScreen('vs_splash');
     },
-    [pendingMode, save.currentChapter, save.currentDuel, syncScreen],
+    [pendingMode, syncScreen],
   );
 
   const handleStartFightFromSplash = useCallback(() => {
@@ -220,7 +270,7 @@ export default function App() {
       if (screen === 'title' && !showTitleSettings) {
         if (e.code === 'Enter' || e.code === 'Space') {
           e.preventDefault();
-          handleOpenCharacterSelect('chapter');
+          handleStartModeFromTitle('chapter');
         }
       } else if (screen === 'playing' || screen === 'paused') {
         if (e.code === 'Escape') {
@@ -238,7 +288,7 @@ export default function App() {
     screen,
     showTitleSettings,
     hud?.mode,
-    handleOpenCharacterSelect,
+    handleStartModeFromTitle,
     handleTogglePause,
     handleToggleMute,
   ]);
@@ -283,8 +333,25 @@ export default function App() {
     });
   };
 
+  const handleBuyWeapon = (weaponId: string, currency: 'coins' | 'sp') => {
+    setSave((prev) => {
+      const next = buyWeapon(prev, weaponId, currency);
+      engineRef.current?.updateSave(next);
+      return next;
+    });
+  };
+
+  const handleEquipWeapon = (weaponId: string) => {
+    setSave((prev) => {
+      const next = equipWeapon(prev, weaponId);
+      engineRef.current?.updateSave(next);
+      return next;
+    });
+  };
+
   const handleReturnTitle = () => {
     setShowTitleSettings(false);
+    setIsPrologueMode(false);
     syncScreen('title');
   };
 
@@ -295,8 +362,8 @@ export default function App() {
       return;
     }
     if (hud.matchStats?.winner === 1 && hud.mode === 'chapter') {
-      setSkillTreeReturnTo('story_card');
-      syncScreen('skill_tree');
+      setIsPrologueMode(false);
+      syncScreen('story_card');
     } else {
       launchMatchImmediate({
         mode: hud.mode,
@@ -320,8 +387,16 @@ export default function App() {
       {screen === 'title' && (
         <TitleScreen
           save={save}
-          onStartMode={handleOpenCharacterSelect}
+          onStartMode={handleStartModeFromTitle}
           onOpenRoster={() => handleOpenCharacterSelect('chapter')}
+          onOpenArmory={() => {
+            setArmoryReturnTo('title');
+            syncScreen('armory');
+          }}
+          onOpenStory={() => {
+            setIsPrologueMode(true);
+            syncScreen('story_card');
+          }}
           onOpenSkillTree={() => {
             setSkillTreeReturnTo('title');
             syncScreen('skill_tree');
@@ -341,6 +416,16 @@ export default function App() {
         />
       )}
 
+      {/* Weapon Armory & Forge */}
+      {screen === 'armory' && (
+        <ArmoryModal
+          save={save}
+          onBuyWeapon={handleBuyWeapon}
+          onEquipWeapon={handleEquipWeapon}
+          onBack={() => syncScreen(armoryReturnTo)}
+        />
+      )}
+
       {/* MOBA Character Select Screen */}
       {screen === 'character_select' && (
         <CharacterSelectModal
@@ -348,6 +433,10 @@ export default function App() {
           mode={pendingMode}
           onSelectCharacter={handleSelectCharacter}
           onUnlockCharacter={handleUnlockCharacter}
+          onOpenArmory={() => {
+            setArmoryReturnTo('character_select');
+            syncScreen('armory');
+          }}
           onLockIn={handleLockInCharacter}
           onBack={handleReturnTitle}
         />
@@ -405,6 +494,10 @@ export default function App() {
           chapterIndex={hud.chapterIndex}
           isVersus={hud.mode === 'versus'}
           onContinue={handleContinueAfterMatch}
+          onOpenArmory={() => {
+            setArmoryReturnTo('match_over');
+            syncScreen('armory');
+          }}
           onOpenSkillTree={() => {
             setSkillTreeReturnTo('match_over');
             syncScreen('skill_tree');
@@ -424,13 +517,19 @@ export default function App() {
         />
       )}
 
-      {/* Between-Chapters Ink-Painted Story Card */}
+      {/* Pre-Gameplay Prologue & Between-Levels Story Scroll */}
       {screen === 'story_card' && (
         <StoryCardModal
           save={save}
           chapterIndex={save.currentChapter}
           duelIndex={save.currentDuel}
-          onEnterDuel={() => handleLockInCharacter(save.selectedCharacterId)}
+          isPrologue={isPrologueMode}
+          onFinishPrologue={handleFinishPrologue}
+          onEnterDuel={() => openChapterVSSplash(save.selectedCharacterId)}
+          onOpenArmory={() => {
+            setArmoryReturnTo('story_card');
+            syncScreen('armory');
+          }}
           onOpenSkillTree={() => {
             setSkillTreeReturnTo('story_card');
             syncScreen('skill_tree');

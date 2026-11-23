@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Check, Home, Moon, Orbit, Play, RotateCcw, Sun } from 'lucide-react';
+import { ArrowRight, Check, Coins, Home, Moon, Orbit, Play, RotateCcw, Sun, Sword } from 'lucide-react';
 import { CHAPTERS } from '../game/config';
 import { describeEchoProfile } from '../game/echo';
 import { GameSettings, MatchStats, SaveData } from '../game/types';
@@ -155,6 +155,7 @@ interface MatchOverModalProps {
   chapterIndex: number;
   isVersus: boolean;
   onContinue: () => void;
+  onOpenArmory?: () => void;
   onOpenSkillTree: () => void;
   onReturnTitle: () => void;
 }
@@ -165,6 +166,7 @@ export const MatchOverModal: React.FC<MatchOverModalProps> = ({
   chapterIndex,
   isVersus,
   onContinue,
+  onOpenArmory,
   onOpenSkillTree,
   onReturnTitle,
 }) => {
@@ -222,12 +224,18 @@ export const MatchOverModal: React.FC<MatchOverModalProps> = ({
           </div>
         </div>
 
-        {/* Spirit Points Breakdown + Concise Echo Habit */}
+        {/* Spirit Points & Coins Breakdown + Concise Echo Habit */}
         {!isVersus && (
           <div className="mt-4 space-y-2 text-xs text-[var(--ink-muted)]">
             <div className="flex items-center justify-between font-semibold text-sm text-[var(--ink)]">
-              <span>Spirit Points</span>
-              <span className="font-mono tabular-nums">+{stats.spEarned.total} SP</span>
+              <span>Rewards</span>
+              <div className="flex items-center gap-3 font-mono tabular-nums">
+                <span className="inline-flex items-center gap-1 text-[var(--gold)]">
+                  <Coins className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>+{stats.coinsEarned.total} Coins</span>
+                </span>
+                <span>+{stats.spEarned.total} SP</span>
+              </div>
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono tabular-nums">
               <span>Win +{stats.spEarned.win}</span>
@@ -244,20 +252,30 @@ export const MatchOverModal: React.FC<MatchOverModalProps> = ({
 
         {/* Actions */}
         <div className="mt-6 pt-4 border-t border-[var(--ink-border)] flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={onReturnTitle}
-              className="kata-btn inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border border-[var(--ink-border)] text-[var(--ink)] hover:border-[var(--ink)] cursor-pointer"
+              className="kata-btn inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs sm:text-sm font-medium border border-[var(--ink-border)] text-[var(--ink)] hover:border-[var(--ink)] cursor-pointer"
             >
               <Home className="w-3.5 h-3.5 stroke-[1.9]" aria-hidden="true" />
               <span>Title</span>
             </button>
+            {!isVersus && onOpenArmory && (
+              <button
+                type="button"
+                onClick={onOpenArmory}
+                className="kata-btn inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs sm:text-sm font-medium font-mono border border-[var(--ink-border)] text-[var(--ink)] hover:border-[var(--ink)] cursor-pointer"
+              >
+                <Sword className="w-3.5 h-3.5 text-[var(--gold)] stroke-[1.9]" aria-hidden="true" />
+                <span>{save.coins}</span>
+              </button>
+            )}
             {!isVersus && (
               <button
                 type="button"
                 onClick={onOpenSkillTree}
-                className="kata-btn inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium font-mono border border-[var(--ink-border)] text-[var(--ink)] hover:border-[var(--ink)] cursor-pointer"
+                className="kata-btn inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs sm:text-sm font-medium font-mono border border-[var(--ink-border)] text-[var(--ink)] hover:border-[var(--ink)] cursor-pointer"
               >
                 <Orbit className="w-3.5 h-3.5 stroke-[1.9]" aria-hidden="true" />
                 <span>{save.spiritPoints} SP</span>
@@ -276,7 +294,7 @@ export const MatchOverModal: React.FC<MatchOverModalProps> = ({
             ) : (
               <ArrowRight className="w-4 h-4 stroke-[2.1]" aria-hidden="true" />
             )}
-            <span>{isVersus ? 'Rematch' : won ? 'Next Duel' : 'Retry'}</span>
+            <span>{isVersus ? 'Rematch' : won ? 'Next Level' : 'Retry'}</span>
           </button>
         </div>
       </div>

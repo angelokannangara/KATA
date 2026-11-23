@@ -3,7 +3,7 @@
  * All core combat numbers (damage, timing windows, Flow costs, cooldowns) are centralized here.
  */
 
-import { ChapterConfig, MoveDefinition, Pose, SkillNode, StanceId } from './types';
+import { ChapterConfig, MoveDefinition, Pose, SkillNode, StanceId, StoryBeat } from './types';
 export {
   CHARACTERS,
   CHARACTER_LIST,
@@ -65,6 +65,12 @@ export const CONFIG = {
   spNoDamageRound: 35,
   spComboThreshold: 4,
   spComboBonus: 20,
+
+  // Gold Coins Rewards (Armory Currency)
+  coinsWinBase: 55,
+  coinsChapterBonus: 85,
+  coinsPerPerfectParry: 15,
+  coinsComboBonus: 25,
 
   // Echo Recorder
   maxEchoHistory: 400,
@@ -632,6 +638,315 @@ export const STANCE_MOVES: Record<
       easingIn: 'easeOutBack',
       easingOut: 'easeOutCubic',
     },
+  },
+};
+
+// ============================================================================
+// FANCY MARTIAL-ARTS KICKS (Standing per Stance, Combo Hurricane, Sweep, Air)
+// ============================================================================
+
+export const FANCY_KICK_MOVES: {
+  crane: MoveDefinition;
+  tiger: MoveDefinition;
+  serpent: MoveDefinition;
+  combo_spin: MoveDefinition;
+  crouch_sweep: MoveDefinition;
+  air_dropkick: MoveDefinition;
+} = {
+  crane: {
+    id: 'crane_fancy_kick',
+    name: 'Tornado Crescent Kick',
+    stance: 'crane',
+    kind: 'kick',
+    startup: 0.12,
+    active: 0.18,
+    recovery: 0.19,
+    damage: 13,
+    chipDamage: 3,
+    hitstun: 0.34,
+    blockstun: 0.18,
+    knockbackX: 220,
+    knockbackY: -175,
+    lungeVelX: 235,
+    lungeVelY: -140,
+    hitboxRadius: 32,
+    activeLimb: 'footR',
+    hitstop: 0.058,
+    shake: 6,
+    spinArc: true,
+    multiHitCount: 2,
+    trailStyle: 'kick',
+    flowGainOnHit: 14,
+    flowCost: 0,
+    cooldown: 0,
+    anticipationPose: p({
+      hipOffsetY: 4,
+      torsoAngle: -0.35,
+      hipR: -0.55,
+      kneeR: -1.75,
+      hipL: 0.3,
+      kneeL: -0.7,
+      shoulderR: -1.1,
+      shoulderL: 1.15,
+    }),
+    strikePose: p({
+      hipOffsetY: 16,
+      torsoAngle: -0.62,
+      hipR: 2.15,
+      kneeR: -0.04,
+      hipL: -0.55,
+      kneeL: -0.35,
+      shoulderL: 1.45,
+      shoulderR: -1.0,
+      scaleX: 1.08,
+      scaleY: 0.94,
+    }),
+    recoveryPose: POSES.idleCrane,
+    easingIn: 'easeOutBack',
+    easingOut: 'easeOutCubic',
+  },
+  tiger: {
+    id: 'tiger_fancy_kick',
+    name: 'Crushing Axe Heel Drop',
+    stance: 'tiger',
+    kind: 'kick',
+    startup: 0.18,
+    active: 0.15,
+    recovery: 0.24,
+    damage: 20,
+    chipDamage: 5,
+    hitstun: 0.4,
+    blockstun: 0.24,
+    knockbackX: 270,
+    knockbackY: -220,
+    lungeVelX: 205,
+    lungeVelY: -95,
+    hitboxRadius: 34,
+    activeLimb: 'footR',
+    hitstop: 0.082,
+    shake: 10,
+    isOverhead: true,
+    trailStyle: 'kick',
+    flowGainOnHit: 15,
+    flowCost: 0,
+    cooldown: 0,
+    anticipationPose: p(
+      {
+        hipOffsetY: 14,
+        torsoAngle: -0.45,
+        hipR: 2.38,
+        kneeR: -0.15,
+        hipL: -0.35,
+        kneeL: -0.25,
+        shoulderR: 1.65,
+        shoulderL: -1.25,
+      },
+      POSES.idleTiger,
+    ),
+    strikePose: p(
+      {
+        hipOffsetY: -12,
+        torsoAngle: 0.56,
+        hipR: 1.12,
+        kneeR: -0.04,
+        hipL: -0.75,
+        kneeL: -0.85,
+        shoulderR: -0.9,
+        shoulderL: 1.25,
+        scaleX: 1.12,
+        scaleY: 0.88,
+      },
+      POSES.idleTiger,
+    ),
+    recoveryPose: POSES.idleTiger,
+    easingIn: 'easeOutBack',
+    easingOut: 'easeOutCubic',
+  },
+  serpent: {
+    id: 'serpent_fancy_kick',
+    name: 'Viper Snap Hook Kick',
+    stance: 'serpent',
+    kind: 'kick',
+    startup: 0.13,
+    active: 0.16,
+    recovery: 0.2,
+    damage: 16,
+    chipDamage: 4,
+    hitstun: 0.36,
+    blockstun: 0.2,
+    knockbackX: 295,
+    knockbackY: -150,
+    lungeVelX: 265,
+    hitboxRadius: 32,
+    activeLimb: 'footR',
+    hitstop: 0.068,
+    shake: 8,
+    spinArc: true,
+    trailStyle: 'kick',
+    flowGainOnHit: 16,
+    flowCost: 0,
+    cooldown: 0,
+    anticipationPose: p(
+      {
+        hipOffsetY: -4,
+        torsoAngle: -0.4,
+        hipR: -0.45,
+        kneeR: -1.65,
+        shoulderR: -0.95,
+        shoulderL: 1.05,
+      },
+      POSES.idleSerpent,
+    ),
+    strikePose: p(
+      {
+        hipOffsetY: 6,
+        torsoAngle: -0.58,
+        hipR: 1.88,
+        kneeR: -0.02,
+        hipL: -0.48,
+        kneeL: -0.25,
+        shoulderR: 1.5,
+        shoulderL: -1.35,
+      },
+      POSES.idleSerpent,
+    ),
+    recoveryPose: POSES.idleSerpent,
+    easingIn: 'easeOutBack',
+    easingOut: 'easeOutCubic',
+  },
+  combo_spin: {
+    id: 'fancy_hurricane_kick',
+    name: '360° Ink Hurricane Kick',
+    stance: 'crane',
+    kind: 'kick',
+    startup: 0.1,
+    active: 0.24,
+    recovery: 0.22,
+    damage: 11,
+    chipDamage: 3,
+    hitstun: 0.36,
+    blockstun: 0.2,
+    knockbackX: 330,
+    knockbackY: -245,
+    lungeVelX: 275,
+    lungeVelY: -195,
+    hitboxRadius: 34,
+    activeLimb: 'bothFeet',
+    hitstop: 0.072,
+    shake: 9,
+    spinArc: true,
+    multiHitCount: 2,
+    trailStyle: 'kick',
+    flowGainOnHit: 18,
+    flowCost: 0,
+    cooldown: 0,
+    anticipationPose: p({
+      hipOffsetY: 10,
+      torsoAngle: -0.45,
+      hipR: 0.9,
+      kneeR: -1.5,
+      hipL: -0.8,
+      kneeL: -1.3,
+      shoulderL: 1.4,
+      shoulderR: -1.2,
+    }),
+    strikePose: p({
+      hipOffsetY: 18,
+      torsoAngle: -0.68,
+      hipR: 2.05,
+      kneeR: -0.04,
+      hipL: -1.65,
+      kneeL: -0.1,
+      shoulderL: -1.35,
+      shoulderR: 1.45,
+      scaleX: 1.12,
+      scaleY: 0.92,
+    }),
+    recoveryPose: POSES.idleCrane,
+    easingIn: 'easeOutBack',
+    easingOut: 'easeOutCubic',
+  },
+  crouch_sweep: {
+    id: 'fancy_dragon_sweep',
+    name: 'Dragon Tail Spinning Sweep',
+    stance: 'serpent',
+    kind: 'crouch',
+    startup: 0.11,
+    active: 0.14,
+    recovery: 0.2,
+    damage: 14,
+    chipDamage: 3,
+    hitstun: 0.38,
+    blockstun: 0.16,
+    knockbackX: 190,
+    knockbackY: -210,
+    lungeVelX: 235,
+    hitboxRadius: 32,
+    activeLimb: 'footR',
+    hitstop: 0.06,
+    shake: 7,
+    isLow: true,
+    spinArc: true,
+    trailStyle: 'kick',
+    flowGainOnHit: 14,
+    flowCost: 0,
+    cooldown: 0,
+    anticipationPose: POSES.crouch,
+    strikePose: p({
+      hipOffsetY: -36,
+      torsoAngle: -0.42,
+      hipR: 1.65,
+      kneeR: -0.02,
+      hipL: -1.15,
+      kneeL: -1.45,
+      shoulderR: -1.2,
+      shoulderL: 1.3,
+    }),
+    recoveryPose: POSES.crouch,
+    easingIn: 'easeOutBack',
+    easingOut: 'easeOutCubic',
+  },
+  air_dropkick: {
+    id: 'fancy_air_dropkick',
+    name: 'Flying Swallow Double Kick',
+    stance: 'crane',
+    kind: 'air',
+    startup: 0.1,
+    active: 0.24,
+    recovery: 0.18,
+    damage: 18,
+    chipDamage: 4,
+    hitstun: 0.36,
+    blockstun: 0.22,
+    knockbackX: 315,
+    knockbackY: -170,
+    lungeVelX: 360,
+    lungeVelY: 135,
+    hitboxRadius: 33,
+    activeLimb: 'bothFeet',
+    hitstop: 0.075,
+    shake: 9,
+    isOverhead: true,
+    trailStyle: 'kick',
+    flowGainOnHit: 16,
+    flowCost: 0,
+    cooldown: 0,
+    anticipationPose: POSES.jump,
+    strikePose: p({
+      hipOffsetY: 12,
+      torsoAngle: -0.68,
+      hipR: 1.48,
+      kneeR: -0.04,
+      hipL: 1.28,
+      kneeL: -0.08,
+      shoulderL: -1.4,
+      shoulderR: -1.2,
+      scaleX: 1.14,
+      scaleY: 0.9,
+    }),
+    recoveryPose: POSES.jump,
+    easingIn: 'easeOutBack',
+    easingOut: 'easeOutCubic',
   },
 };
 
@@ -1551,8 +1866,23 @@ export const DEFAULT_EQUIPPED_SKILLS: [string, string, string] = [
 ];
 
 // ============================================================================
-// 5 CHAPTERS (3 DUELS + 1 ECHO BOSS EACH = 20 ENCOUNTERS)
+// PRE-GAMEPLAY OPENING STORY (PROLOGUE) & 5-CHAPTER CAMPAIGN (20 LEVELS)
 // ============================================================================
+
+export const STORY_PROLOGUE: StoryBeat[] = [
+  {
+    title: 'I · The Unbound Scroll',
+    line: 'In the Mist Valley, masters did not write their forms in words—they painted them in living ink. When the Sanctum fractured, those painted katas slipped free from the paper.',
+  },
+  {
+    title: 'II · The Awakening Echo',
+    line: 'Each duel feeds a shadow known as the Echo. It watches every feint, stance shift, kick, and parry you favor—until it walks onto the field wearing your own fighting soul.',
+  },
+  {
+    title: 'III · Five Thresholds',
+    line: 'Carry blade, spirit, and coin across five sanctuaries—from the Bamboo Mist to the Mirror Void. Evolve your kata, forge stronger arms, and overcome yourself.',
+  },
+];
 
 export const CHAPTERS: ChapterConfig[] = [
   {
@@ -1583,6 +1913,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'crane',
         skills: ['crane_wing_evade', 'rising_dragon', 'serpent_wrap'],
         quote: '“Keep your balance before you reach for speed.”',
+        storyBeat: {
+          title: 'The Outer Path',
+          line: 'Morning mist parts at the bamboo gate. A quiet disciple steps forward to test whether your breath holds steady.',
+        },
       },
       {
         characterId: 'benkei',
@@ -1594,6 +1928,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'tiger',
         skills: ['rising_dragon', 'iron_palm', 'tiger_claw_rush'],
         quote: '“Hesitate once and the mountain falls upon you.”',
+        storyBeat: {
+          title: 'Weight of Iron',
+          line: 'Ren bows and yields the path, warning of the stone-hearted monk guarding the grove’s deeper clearing.',
+        },
       },
       {
         characterId: 'shiori',
@@ -1605,6 +1943,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'serpent',
         skills: ['serpent_wrap', 'counter_mirror', 'crane_wing_evade'],
         quote: '“Every lunge carries its own counter.”',
+        storyBeat: {
+          title: 'The Still Clearing',
+          line: 'Lantern embers flicker among tall stalks. Sora watches your footwork intently, waiting to turn haste against you.',
+        },
       },
       {
         characterId: 'echo',
@@ -1617,6 +1959,10 @@ export const CHAPTERS: ChapterConfig[] = [
         skills: ['crane_wing_evade', 'rising_dragon', 'serpent_wrap'],
         isEcho: true,
         quote: 'It mirrors your opening rhythm. Break your own habit.',
+        storyBeat: {
+          title: 'Ink Takes Form',
+          line: 'The fog gathers into a silhouette wearing your own posture. Your first Echo has awakened from the strokes you just fought.',
+        },
       },
     ],
   },
@@ -1648,6 +1994,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'tiger',
         skills: ['tiger_claw_rush', 'rising_dragon', 'iron_palm'],
         quote: '“Steel bends; ink never apologizes.”',
+        storyBeat: {
+          title: 'Vermilion Steps',
+          line: 'Leaving the reeds behind, you ascend the shrine stairs where Akane guards the first crimson torii with whistling steel fans.',
+        },
       },
       {
         characterId: 'tomoe',
@@ -1659,6 +2009,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'crane',
         skills: ['whirlwind_kick', 'shadow_step', 'crane_wing_evade'],
         quote: '“Strike where I was, and you strike only wind.”',
+        storyBeat: {
+          title: 'Lantern Shadows',
+          line: 'A cold breeze extinguishes the courtyard lamps. Twin kunai glint behind you as Tomoe steps out of the dusk.',
+        },
       },
       {
         characterId: 'benkei',
@@ -1670,6 +2024,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'tiger',
         skills: ['earth_breaker', 'roaring_stance', 'counter_mirror'],
         quote: '“Few cross the second threshold unbroken.”',
+        storyBeat: {
+          title: 'The Bell Gate',
+          line: 'Benkei plants his iron staff across the inner sanctuary stones—testing whether your blade and kicks can crack living armor.',
+        },
       },
       {
         characterId: 'echo',
@@ -1682,6 +2040,10 @@ export const CHAPTERS: ChapterConfig[] = [
         skills: ['rising_dragon', 'whirlwind_kick', 'counter_mirror'],
         isEcho: true,
         quote: 'Your favorite combos return faster than before.',
+        storyBeat: {
+          title: 'Second Reflection',
+          line: 'Crimson petals whirl around a sharpened mirror of yourself. Every combo you leaned on now strikes back.',
+        },
       },
     ],
   },
@@ -1713,6 +2075,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'crane',
         skills: ['fang_lunge', 'coil_sweep', 'serpent_wrap'],
         quote: '“Keep your distance or catch a feathered shaft.”',
+        storyBeat: {
+          title: 'Eaves of Gold',
+          line: 'High above the valley clouds, archers watch the pagoda bridge. Close the gap swiftly before Kasumi controls the floor.',
+        },
       },
       {
         characterId: 'oni_hatsu',
@@ -1724,6 +2090,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'tiger',
         skills: ['sky_piercer', 'gale_crescent', 'shadow_step'],
         quote: '“Bleed once and watch how fast I grow.”',
+        storyBeat: {
+          title: 'The Demon Terrace',
+          line: 'A cracked horned mask grins beneath golden eaves. The closer Oni Hatsu falls to defeat, the fiercer his fury burns.',
+        },
       },
       {
         characterId: 'raiden',
@@ -1735,6 +2105,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'tiger',
         skills: ['crimson_cleave', 'iron_palm', 'counter_mirror'],
         quote: '“Show me what you learned beneath the torii.”',
+        storyBeat: {
+          title: 'Storm Over Tiles',
+          line: 'Static hums along a greatsword’s edge. Raiden salutes the warrior who climbed this far and demands your sharpest form.',
+        },
       },
       {
         characterId: 'echo',
@@ -1747,6 +2121,10 @@ export const CHAPTERS: ChapterConfig[] = [
         skills: ['shadow_step', 'earth_breaker', 'twin_viper'],
         isEcho: true,
         quote: 'It anticipates your dash spacing and punishes greed.',
+        storyBeat: {
+          title: 'Third Reflection',
+          line: 'Gold ink pools beneath the pagoda lantern. Your Echo now weaves stances mid-combo just as you taught it.',
+        },
       },
     ],
   },
@@ -1778,6 +2156,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'serpent',
         skills: ['ink_clone', 'shadow_step', 'thousand_strike'],
         quote: '“No bridge is wide enough to escape my chain.”',
+        storyBeat: {
+          title: 'Timber Over Still Water',
+          line: 'Iron links rattle in the river mist. Kagero lurks on the narrow span, ready to yank careless challengers back into range.',
+        },
       },
       {
         characterId: 'oni_hatsu',
@@ -1789,6 +2171,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'tiger',
         skills: ['cataclysm_blow', 'crimson_cleave', 'roaring_stance'],
         quote: '“No parry holds forever against thunder.”',
+        storyBeat: {
+          title: 'Ash on the Planks',
+          line: 'Returning stronger than before, the masked berserker blocks the bridge midpoint with relentless overhead pressure.',
+        },
       },
       {
         characterId: 'shiori',
@@ -1800,6 +2186,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'crane',
         skills: ['counter_mirror', 'echo_siphon', 'eclipse_bind'],
         quote: '“Your haste is my sharpest weapon.”',
+        storyBeat: {
+          title: 'The Sanctum Threshold',
+          line: 'Before the final gate stands Shiori, serene and unblinking—disciplined to mirror and mend every scratch you deal.',
+        },
       },
       {
         characterId: 'echo',
@@ -1812,6 +2202,10 @@ export const CHAPTERS: ChapterConfig[] = [
         skills: ['thousand_strike', 'cataclysm_blow', 'echo_siphon'],
         isEcho: true,
         quote: 'Every habit perfected. Outgrow yourself to cross.',
+        storyBeat: {
+          title: 'Fourth Reflection',
+          line: 'The silent river reflects only one silhouette. Defeat your deepest habits here to enter the Mirror Void.',
+        },
       },
     ],
   },
@@ -1843,6 +2237,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'crane',
         skills: ['thousand_strike', 'rising_dragon', 'twin_viper'],
         quote: '“Three stances, one unbroken river.”',
+        storyBeat: {
+          title: 'The Blank Page',
+          line: 'Inside the eclipse sanctum, Kenshin awaits without malice—asking only to witness the truth of your blade.',
+        },
       },
       {
         characterId: 'kagero',
@@ -1854,6 +2252,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'serpent',
         skills: ['eclipse_bind', 'shadow_step', 'counter_mirror'],
         quote: '“Your shadow moved before your hand.”',
+        storyBeat: {
+          title: 'Severed Tether',
+          line: 'Only two trials remain. Chains cut through the void air as Kagero strikes from impossible angles.',
+        },
       },
       {
         characterId: 'raiden',
@@ -1865,6 +2267,10 @@ export const CHAPTERS: ChapterConfig[] = [
         stance: 'tiger',
         skills: ['cataclysm_blow', 'earth_breaker', 'iron_palm'],
         quote: '“Show me the final brushstroke.”',
+        storyBeat: {
+          title: 'The Last Gatekeeper',
+          line: 'Thunder shakes the sanctum floor. Best Raiden at his peak to stand face-to-face with the True Echo.',
+        },
       },
       {
         characterId: 'echo',
@@ -1877,6 +2283,10 @@ export const CHAPTERS: ChapterConfig[] = [
         skills: ['thousand_strike', 'cataclysm_blow', 'eclipse_bind'],
         isEcho: true,
         quote: 'Your own mastery stands before you.',
+        storyBeat: {
+          title: 'Ink & Echo',
+          line: 'The final brush stroke completes the circle. Your True Echo rises with every combo, kick, and parry you ever forged.',
+        },
       },
     ],
   },

@@ -5,13 +5,14 @@
 
 import { getCharacterConfig } from './characters';
 import { computeJointPositions, createScarf, updateWeaponTransform } from './animation';
-import { CONFIG, POSES, SKILL_MAP, STANCE_META, STANCE_MOVES } from './config';
+import { CONFIG, FANCY_KICK_MOVES, POSES, SKILL_MAP, STANCE_META, STANCE_MOVES } from './config';
 import {
   AIPersonality,
   FighterState,
   MoveDefinition,
   StanceId,
 } from './types';
+import { resolveFighterWeapon } from './weapons';
 
 export interface CircleBox {
   x: number;
@@ -35,6 +36,7 @@ export interface HitResult {
 export function createFighter(params: {
   id: 1 | 2;
   characterId?: string;
+  equippedWeaponId?: string;
   name: string;
   x: number;
   facing: 1 | -1;
@@ -47,7 +49,9 @@ export function createFighter(params: {
   isEcho?: boolean;
 }): FighterState {
   const characterId = params.characterId ?? 'kenshin';
+  const equippedWeaponId = params.equippedWeaponId ?? 'default';
   const char = getCharacterConfig(characterId);
+  const resolvedWeapon = resolveFighterWeapon(char, equippedWeaponId);
 
   const rawIdle =
     params.stance === 'tiger'
@@ -72,6 +76,7 @@ export function createFighter(params: {
   const fighter: FighterState = {
     id: params.id,
     characterId,
+    equippedWeaponId,
     name: params.name,
     isAI: params.isAI,
     personality: params.personality,
@@ -121,7 +126,7 @@ export function createFighter(params: {
     sashTails: char.costume.obiSash ? createScarf(joints.hip.x, joints.hip.y + 4, 5) : [],
     chainTip: { x: joints.handL.x - params.facing * 16, y: joints.handL.y + 24 },
     weaponBase: { x: joints.handR.x, y: joints.handR.y },
-    weaponTip: { x: joints.handR.x + params.facing * char.weapon.length, y: joints.handR.y },
+    weaponTip: { x: joints.handR.x + params.facing * resolvedWeapon.weaponConfig.length, y: joints.handR.y },
     weaponAngle: 0,
     joints,
     slashTrail: [],
@@ -168,6 +173,7 @@ export function getMoveHitboxes(fighter: FighterState): CircleBox[] {
   const j = fighter.joints;
   const r = move.hitboxRadius;
   const char = getCharacterConfig(fighter.characterId);
+  const resolved = resolveFighterWeapon(char, fighter.equippedWeaponId);
 
   switch (move.activeLimb) {
     case 'weaponTip': {
@@ -180,7 +186,7 @@ export function getMoveHitboxes(fighter: FighterState): CircleBox[] {
         { x: midX, y: midY, r: r * 0.85 },
         { x: base.x, y: base.y, r: r * 0.68 },
       ];
-      if (char.weapon.kind === 'kusarigama' && fighter.chainTip) {
+      if (resolved.weaponConfig.kind === 'kusarigama' && fighter.chainTip) {
         boxes.push({ x: fighter.chainTip.x, y: fighter.chainTip.y, r: r * 0.95 });
       }
       return boxes;
@@ -204,7 +210,16 @@ export function getMoveHitboxes(fighter: FighterState): CircleBox[] {
         { x: (j.kneeR.x + j.footR.x) * 0.5, y: (j.kneeR.y + j.footR.y) * 0.5, r: r * 0.72 },
       ];
     case 'footL':
-      return [{ x: j.footL.x, y: j.footL.y, r }];
+      return [
+        { x: j.footL.x, y: j.footL.y, r },
+        { x: (j.kneeL.x + j.footL.x) * 0.5, y: (j.kneeL.y + j.footL.y) * 0.5, r: r * 0.72 },
+      ];
+    case 'bothFeet':
+      return [
+        { x: j.footR.x, y: j.footR.y, r },
+        { x: j.footL.x, y: j.footL.y, r: r * 0.95 },
+        { x: (j.kneeR.x + j.footR.x) * 0.5, y: (j.kneeR.y + j.footR.y) * 0.5, r: r * 0.75 },
+      ];
     case 'torso':
       return [{ x: j.shoulder.x, y: (j.shoulder.y + j.hip.y) * 0.5, r }];
   }
@@ -304,27 +319,74 @@ export function getSkillKitForSlot(
 
 export function getMoveForAction(
   fighter: FighterState,
-  kind: 'light' | 'heavy' | 'crouch' | 'air' | 'skill_0' | 'skill_1' | 'skill_2' | 'ultimate',
+  kind:
+    | 'light'
+    | 'heavy'
+    | 'kick'
+    | 'kick_combo'
+    | 'crouch_kick'
+    | 'air_kick'
+    | 'crouch'
+    | 'air'
+    | 'skill_0'
+    | 'skill_1'
+    | 'skill_2'
+    | 'ultimate',
 ): MoveDefinition | null {
   const char = getCharacterConfig(fighter.characterId);
+  const resolved = resolveFighterWeapon(char, fighter.equippedWeaponId);
+  const speedRatio = 1 / Math.max(0.7, char.basicSpeed * resolved.speedMult);
+
   if (kind === 'ultimate') {
     return char.ultimate.move;
   }
   if (kind === 'skill_0' || kind === 'skill_1' || kind === 'skill_2') {
     const slot = kind === 'skill_0' ? 0 : kind === 'skill_1' ? 1 : 2;
-    return getSkillKitForSlot(fighter, slot)?.move ?? null;
+    const skillMove = getSkillKitForSlot(fighter, slot)?.move ?? null;
+    if (!skillMove) return null;
+    if (skillMove.activeLimb === 'weaponTip' && resolved.trailStyle !== 'kick') {
+      return {
+        ...skillMove,
+        hitboxRadius: skillMove.hitboxRadius + Math.round(resolved.reachBonus * 0.3),
+        trailStyle: resolved.trailStyle,
+      };
+    }
+    return skillMove;
   }
+
+  if (kind === 'kick' || kind === 'kick_combo' || kind === 'crouch_kick' || kind === 'air_kick') {
+    const kickBase =
+      kind === 'kick_combo'
+        ? FANCY_KICK_MOVES.combo_spin
+        : kind === 'crouch_kick'
+          ? FANCY_KICK_MOVES.crouch_sweep
+          : kind === 'air_kick'
+            ? FANCY_KICK_MOVES.air_dropkick
+            : FANCY_KICK_MOVES[fighter.stance];
+
+    return {
+      ...kickBase,
+      stance: fighter.stance,
+      startup: Number((kickBase.startup * (1 / Math.max(0.75, char.basicSpeed))).toFixed(3)),
+      hitboxRadius: Math.round(kickBase.hitboxRadius * (0.95 + char.basicReach * 0.08)),
+      trailStyle: 'kick',
+      inkColor: STANCE_META[fighter.stance].color,
+    };
+  }
+
   const base = STANCE_MOVES[fighter.stance][kind];
-  const speedRatio = 1 / Math.max(0.75, char.basicSpeed);
   const usesWeaponTip =
     base.activeLimb === 'handR' || base.activeLimb === 'bothHands';
   return {
     ...base,
     startup: Number((base.startup * speedRatio).toFixed(3)),
-    hitboxRadius: Math.round(base.hitboxRadius * (0.9 + char.basicReach * 0.14)),
+    hitboxRadius: Math.round(
+      base.hitboxRadius * (0.9 + char.basicReach * 0.14) +
+        (usesWeaponTip ? resolved.reachBonus * 0.35 : 0),
+    ),
     activeLimb: usesWeaponTip ? 'weaponTip' : base.activeLimb,
-    trailStyle: char.trailStyle,
-    inkColor: base.inkColor ?? char.accentColor,
+    trailStyle: resolved.trailStyle,
+    inkColor: base.inkColor ?? resolved.bladeTint ?? char.accentColor,
   };
 }
 
@@ -347,10 +409,21 @@ export function resolveAttackHit(params: {
   hitY: number;
   nowMs: number;
   damageScale?: number;
+  rng?: () => number;
 }): HitResult {
-  const { attacker, defender, move, hitX, hitY, nowMs, damageScale = 1 } = params;
+  const {
+    attacker,
+    defender,
+    move,
+    hitX,
+    hitY,
+    nowMs,
+    damageScale = 1,
+    rng = Math.random,
+  } = params;
   const attChar = getCharacterConfig(attacker.characterId);
   const defChar = getCharacterConfig(defender.characterId);
+  const attWeapon = resolveFighterWeapon(attChar, attacker.equippedWeaponId);
 
   // 1. Check Counter Mirror / Counter Stance
   if (
@@ -425,11 +498,19 @@ export function resolveAttackHit(params: {
     const benkeiGuardMult = defender.characterId === 'benkei' ? 0.5 : 1;
     const chip = Math.max(
       1,
-      Math.round(move.chipDamage * damageScale * benkeiGuardMult * defChar.defenseMult),
+      Math.round(
+        move.chipDamage *
+          damageScale *
+          attWeapon.guardBreakMult *
+          benkeiGuardMult *
+          defChar.defenseMult,
+      ),
     );
     defender.hp = Math.max(1, defender.hp - chip);
     defender.hitstunTimer =
-      move.blockstun * (attacker.characterId === 'raiden' && move.kind !== 'light' ? 1.2 : 1);
+      move.blockstun *
+      attWeapon.guardBreakMult *
+      (attacker.characterId === 'raiden' && move.kind !== 'light' ? 1.2 : 1);
     defender.vx = attacker.facing * move.knockbackX * 0.45;
     defender.flow = Math.min(CONFIG.maxFlow, defender.flow + CONFIG.blockFlowGain);
     attacker.flow = Math.min(CONFIG.maxFlow, attacker.flow + 3);
@@ -447,7 +528,7 @@ export function resolveAttackHit(params: {
     };
   }
 
-  // 4. Clean Hit — apply Stance Multiplier + Stance-Weave + Character Passives
+  // 4. Clean Hit — apply Stance Multiplier + Stance-Weave + Character Passives + Weapon Perks
   const stanceMult = STANCE_META[attacker.stance].damageMult;
   const isStanceWeave =
     attacker.comboCount > 0 &&
@@ -468,8 +549,15 @@ export function resolveAttackHit(params: {
   const weaveMult = isStanceWeave ? CONFIG.stanceWeaveBonusMult : 1;
   const counterMult = attacker.counterWindowTimer > 0 ? 1.3 : 1;
 
-  // Character Passives Damage Modifiers
-  let passiveMult = attChar.damageMult * defChar.defenseMult;
+  // Character Passives + Weapon Damage Multipliers
+  const isKickMove = move.kind === 'kick' || move.trailStyle === 'kick';
+  const weaponDmgMult = isKickMove
+    ? 1 + (attWeapon.damageMult - 1) * 0.5
+    : attWeapon.damageMult;
+  const isCrit = attWeapon.critChance > 0 && rng() < attWeapon.critChance;
+  const critMult = isCrit ? 1.35 : 1;
+
+  let passiveMult = attChar.damageMult * defChar.defenseMult * weaponDmgMult * critMult;
 
   // Kenshin: Empowered draw-cut after parry
   if (attacker.characterId === 'kenshin' && attacker.empoweredDrawReady) {
@@ -497,6 +585,11 @@ export function resolveAttackHit(params: {
   defender.hitFlashTimer = 0.075;
   defender.currentMove = null;
   defender.blocking = false;
+
+  // Armory Lifesteal weapon perk (e.g. Celestial Muramasa)
+  if (attWeapon.lifestealOnHit > 0 && attacker.hp > 0) {
+    attacker.hp = Math.min(attacker.maxHp, attacker.hp + attWeapon.lifestealOnHit);
+  }
 
   // Pulls opponent mechanic (Kagero's kusarigama chain pull!)
   if (move.pullsOpponent && defender.hp > 0) {
@@ -535,11 +628,11 @@ export function resolveAttackHit(params: {
   attacker.counterWindowTimer = 0;
 
   const flowGainBonus =
-    attacker.characterId === 'echo'
+    (attacker.characterId === 'echo'
       ? Math.round(move.flowGainOnHit * 1.15)
       : attacker.characterId === 'kasumi' && move.spawnsProjectile
         ? move.flowGainOnHit + 5
-        : move.flowGainOnHit;
+        : move.flowGainOnHit) + attWeapon.flowBonus;
   attacker.flow = Math.min(CONFIG.maxFlow, attacker.flow + flowGainBonus);
 
   // Special Flow-drain moves (Echo Siphon & Kagero Tether)

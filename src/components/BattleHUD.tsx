@@ -150,6 +150,11 @@ export const BattleHUD: React.FC<BattleHUDProps> = ({
                 <span className="hidden sm:inline">FLOW </span>
                 {hud.p1.flow}
               </span>
+              {hud.p1.equippedWeaponName && hud.p1.equippedWeaponName !== 'Signature Armament' && (
+                <span className="hidden md:inline text-[10px] font-mono text-[var(--gold)] truncate max-w-[130px]">
+                  {hud.p1.equippedWeaponName}
+                </span>
+              )}
               {hud.mode !== 'dojo' && (
                 <div
                   className="flex items-center gap-1 shrink-0"
@@ -550,8 +555,8 @@ export const BattleHUD: React.FC<BattleHUDProps> = ({
               {hud.mode !== 'dojo' && (
                 <div className="text-xs font-mono text-[var(--ground-text)]/70 hidden lg:block text-right">
                   {hud.mode === 'versus'
-                    ? 'P2: Arrows · N/M · , Parry · 7/8/9'
-                    : 'Q/E Stance Weave · P Ultimate'}
+                    ? 'P2: Arrows · N/M/B · , Parry · 7/8/9'
+                    : 'F Kick · Q/E Stance · P Ultimate'}
                 </div>
               )}
             </div>
@@ -638,28 +643,36 @@ export const BattleHUD: React.FC<BattleHUDProps> = ({
                     onPointerDown={() => engineRef.current?.triggerTouchButton('block_down')}
                     onPointerUp={() => engineRef.current?.triggerTouchButton('block_up')}
                     onPointerCancel={() => engineRef.current?.triggerTouchButton('block_up')}
-                    className="w-11 h-11 rounded-full border-2 border-white/40 bg-[#1A1815] text-[11px] font-bold text-[#EFE9DC]"
+                    className="w-10 h-10 rounded-full border-2 border-white/40 bg-[#1A1815] text-[10px] font-bold text-[#EFE9DC]"
                   >
                     Parry
                   </button>
                   <button
                     type="button"
                     onPointerDown={() => engineRef.current?.triggerTouchButton('dash')}
-                    className="w-11 h-11 rounded-full border-2 border-white/40 bg-[#1A1815] text-[11px] font-bold text-[#EFE9DC]"
+                    className="w-10 h-10 rounded-full border-2 border-white/40 bg-[#1A1815] text-[10px] font-bold text-[#EFE9DC]"
                   >
                     Dash
                   </button>
                   <button
                     type="button"
+                    data-touch-kick="true"
+                    onPointerDown={() => engineRef.current?.triggerTouchButton('kick')}
+                    className="w-11 h-11 rounded-full border-2 border-[var(--gold)] bg-[#1A1815] text-[11px] font-bold text-[var(--gold)]"
+                  >
+                    Kick
+                  </button>
+                  <button
+                    type="button"
                     onPointerDown={() => engineRef.current?.triggerTouchButton('light')}
-                    className="w-12 h-12 rounded-full bg-[#EFE9DC] text-[#141311] text-xs font-bold"
+                    className="w-11 h-11 rounded-full bg-[#EFE9DC] text-[#141311] text-[11px] font-bold"
                   >
                     Light
                   </button>
                   <button
                     type="button"
                     onPointerDown={() => engineRef.current?.triggerTouchButton('heavy')}
-                    className="w-12 h-12 rounded-full bg-[var(--crimson)] text-[#F4EFE4] text-xs font-bold"
+                    className="w-11 h-11 rounded-full bg-[var(--crimson)] text-[#F4EFE4] text-[11px] font-bold"
                   >
                     Heavy
                   </button>

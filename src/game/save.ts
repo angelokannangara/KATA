@@ -14,16 +14,21 @@ import {
 } from './config';
 import { createDefaultEchoProfile } from './echo';
 import { GameSettings, SaveData } from './types';
+import { WEAPON_MAP } from './weapons';
 
 const SAVE_KEY = 'kata_ink_echo_save_v1';
 
 export function createInitialSaveData(): SaveData {
   return {
     spiritPoints: 50,
+    coins: 120,
     unlockedSkills: [...DEFAULT_UNLOCKED_SKILLS],
     equippedSkills: [...DEFAULT_EQUIPPED_SKILLS] as [string, string, string],
     unlockedCharacters: [...STARTER_CHARACTER_IDS],
     selectedCharacterId: 'kenshin',
+    unlockedWeapons: ['default'],
+    equippedWeaponId: 'default',
+    hasSeenPrologue: false,
     currentChapter: 0,
     currentDuel: 0,
     highestChapter: 0,
@@ -65,9 +70,25 @@ export function loadSaveData(): SaveData {
         ? parsed.selectedCharacterId
         : base.selectedCharacterId;
 
+    const unlockedWeapons = Array.isArray(parsed.unlockedWeapons)
+      ? Array.from(
+          new Set([
+            'default',
+            ...parsed.unlockedWeapons.filter((id) => Boolean(WEAPON_MAP[id])),
+          ]),
+        )
+      : base.unlockedWeapons;
+
+    const equippedWeaponId =
+      typeof parsed.equippedWeaponId === 'string' &&
+      unlockedWeapons.includes(parsed.equippedWeaponId)
+        ? parsed.equippedWeaponId
+        : 'default';
+
     return {
       ...base,
       ...parsed,
+      coins: typeof parsed.coins === 'number' && Number.isFinite(parsed.coins) ? parsed.coins : base.coins,
       unlockedSkills: Array.isArray(parsed.unlockedSkills)
         ? Array.from(new Set([...DEFAULT_UNLOCKED_SKILLS, ...parsed.unlockedSkills]))
         : base.unlockedSkills,
@@ -77,6 +98,9 @@ export function loadSaveData(): SaveData {
           : base.equippedSkills,
       unlockedCharacters,
       selectedCharacterId,
+      unlockedWeapons,
+      equippedWeaponId,
+      hasSeenPrologue: Boolean(parsed.hasSeenPrologue),
       echoEvents: Array.isArray(parsed.echoEvents) ? parsed.echoEvents : [],
       echoProfile: parsed.echoProfile ?? base.echoProfile,
       settings: {
@@ -190,4 +214,55 @@ export function unlockChapterRewardCharacters(
     }
   }
   return newlyUnlocked;
+}
+
+export function canBuyWeapon(
+  save: SaveData,
+  weaponId: string,
+  currency: 'coins' | 'sp',
+): boolean {
+  const weapon = WEAPON_MAP[weaponId];
+  if (!weapon || weapon.id === 'default') return false;
+  if (save.unlockedWeapons.includes(weaponId)) return false;
+  return currency === 'coins' ? save.coins >= weapon.costCoins : save.spiritPoints >= weapon.costSP;
+}
+
+export function buyWeapon(
+  save: SaveData,
+  weaponId: string,
+  currency: 'coins' | 'sp',
+): SaveData {
+  if (!canBuyWeapon(save, weaponId, currency)) return save;
+  const weapon = WEAPON_MAP[weaponId];
+  const next: SaveData = {
+    ...save,
+    coins: currency === 'coins' ? save.coins - weapon.costCoins : save.coins,
+    spiritPoints: currency === 'sp' ? save.spiritPoints - weapon.costSP : save.spiritPoints,
+    unlockedWeapons: [...save.unlockedWeapons, weaponId],
+    equippedWeaponId: weaponId,
+  };
+  persistSaveData(next);
+  return next;
+}
+
+export function equipWeapon(save: SaveData, weaponId: string): SaveData {
+  if (!WEAPON_MAP[weaponId] || !save.unlockedWeapons.includes(weaponId)) {
+    return save;
+  }
+  const next: SaveData = {
+    ...save,
+    equippedWeaponId: weaponId,
+  };
+  persistSaveData(next);
+  return next;
+}
+
+export function markPrologueSeen(save: SaveData): SaveData {
+  if (save.hasSeenPrologue) return save;
+  const next: SaveData = {
+    ...save,
+    hasSeenPrologue: true,
+  };
+  persistSaveData(next);
+  return next;
 }

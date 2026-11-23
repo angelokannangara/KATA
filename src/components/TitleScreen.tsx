@@ -1,14 +1,27 @@
 import React from 'react';
-import { Orbit, SlidersHorizontal, Swords, Target, UserCheck, Users } from 'lucide-react';
+import {
+  BookOpen,
+  Coins,
+  Orbit,
+  SlidersHorizontal,
+  Sword,
+  Swords,
+  Target,
+  UserCheck,
+  Users,
+} from 'lucide-react';
 import { getCharacterConfig } from '../game/characters';
 import { CHAPTERS } from '../game/config';
 import { describeEchoProfile } from '../game/echo';
 import { GameMode, SaveData } from '../game/types';
+import { getWeaponItem } from '../game/weapons';
 
 interface TitleScreenProps {
   save: SaveData;
   onStartMode: (mode: GameMode) => void;
   onOpenRoster: () => void;
+  onOpenArmory: () => void;
+  onOpenStory: () => void;
   onOpenSkillTree: () => void;
   onOpenSettings: () => void;
 }
@@ -17,11 +30,14 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   save,
   onStartMode,
   onOpenRoster,
+  onOpenArmory,
+  onOpenStory,
   onOpenSkillTree,
   onOpenSettings,
 }) => {
   const chapter = CHAPTERS[save.currentChapter] ?? CHAPTERS[0];
   const activeChar = getCharacterConfig(save.selectedCharacterId);
+  const activeWeapon = getWeaponItem(save.equippedWeaponId);
   const duelLabel =
     save.currentChapter > 0
       ? `Ch. ${save.currentChapter + 1} · Duel ${save.currentDuel + 1}`
@@ -31,17 +47,32 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     <div className="fixed inset-0 z-20 flex flex-col justify-between p-5 sm:p-8 md:p-10 pointer-events-none">
       {/* Top Row: Compact progress line & icon utility buttons */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs md:text-sm text-[var(--ink-muted)] tracking-wide pointer-events-auto">
+        <div className="text-xs md:text-sm text-[var(--ink-muted)] tracking-wide pointer-events-auto flex flex-wrap items-center gap-x-2 gap-y-1">
           <span>{chapter.subtitle}</span>
-          <span className="mx-2 opacity-60" aria-hidden="true">
+          <span className="opacity-60" aria-hidden="true">
             ·
           </span>
           <span className="font-semibold text-[var(--ink)]">{activeChar.name}</span>
-          <span className="mx-2 opacity-60" aria-hidden="true">
+          {activeWeapon.id !== 'default' && (
+            <>
+              <span className="opacity-60" aria-hidden="true">
+                ·
+              </span>
+              <span className="text-[var(--ink)]">{activeWeapon.name}</span>
+            </>
+          )}
+          <span className="opacity-60" aria-hidden="true">
+            ·
+          </span>
+          <span className="inline-flex items-center gap-1 font-mono tabular-nums text-[var(--ink)]">
+            <Coins className="w-3.5 h-3.5 text-[var(--gold)] stroke-[2.1]" aria-hidden="true" />
+            <span>{save.coins}</span>
+          </span>
+          <span className="opacity-60" aria-hidden="true">
             ·
           </span>
           <span className="font-mono tabular-nums">{save.spiritPoints} SP</span>
-          <span className="mx-2 opacity-60" aria-hidden="true">
+          <span className="opacity-60" aria-hidden="true">
             ·
           </span>
           <span className="font-mono tabular-nums">
@@ -49,7 +80,27 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
+          <button
+            type="button"
+            onClick={onOpenArmory}
+            aria-label="Weapon Armory"
+            data-nav-armory="true"
+            className="kata-btn inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-medium border border-[var(--ink-border)] bg-[var(--paper-card)] text-[var(--ink)] hover:border-[var(--ink)] whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <Sword className="w-4 h-4 text-[var(--gold)] stroke-[1.9]" aria-hidden="true" />
+            <span>Armory</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenStory}
+            aria-label="Prologue Story"
+            data-nav-story="true"
+            className="kata-btn inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-medium border border-[var(--ink-border)] bg-[var(--paper-card)] text-[var(--ink)] hover:border-[var(--ink)] whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <BookOpen className="w-4 h-4 stroke-[1.75]" aria-hidden="true" />
+            <span>Story</span>
+          </button>
           <button
             type="button"
             onClick={onOpenRoster}
@@ -181,7 +232,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
       {/* Bottom Safe Margin: Compact control hint */}
       <div className="text-[11px] sm:text-xs font-mono text-[var(--ground-text)]/80 tracking-wide truncate">
-        WASD Move · J/K Strike · L Parry · Space Dash · Q/E Stance · U/I/O Skills · P Ult
+        WASD Move · J/K Strike · F Kick · L Parry · Space Dash · Q/E Stance · U/I/O Skills · P Ult
       </div>
     </div>
   );

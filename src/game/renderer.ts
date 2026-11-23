@@ -16,7 +16,9 @@ import {
   StageTheme,
   TrailStyle,
   UltimateOverlayState,
+  WeaponConfig,
 } from './types';
+import { resolveFighterWeapon } from './weapons';
 
 export type ParticleKind = 'ink' | 'dust' | 'spark' | 'ring';
 
@@ -411,18 +413,20 @@ export class InkRenderer {
     const ink = darkMode ? '#EAE3D4' : '#141311';
     const paper = darkMode ? '#181614' : '#F4EFE4';
     const char = getCharacterConfig(fighter.characterId);
+    const resolvedWeapon = resolveFighterWeapon(char, fighter.equippedWeaponId);
+    const previewAccent = resolvedWeapon.bladeTint ?? char.accentColor;
 
     ctx.clearRect(0, 0, width, height);
 
     ctx.save();
     // Subtle ink moon halo behind character
-    ctx.fillStyle = char.accentColor;
-    ctx.globalAlpha = 0.14;
+    ctx.fillStyle = previewAccent;
+    ctx.globalAlpha = 0.16;
     ctx.beginPath();
     ctx.arc(width * 0.5, height * 0.44, Math.min(width, height) * 0.34, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 0.25;
-    ctx.strokeStyle = char.accentColor;
+    ctx.globalAlpha = 0.28;
+    ctx.strokeStyle = previewAccent;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(width * 0.5, height * 0.44, Math.min(width, height) * 0.38, 0.3, Math.PI * 1.85);
@@ -464,6 +468,7 @@ export class InkRenderer {
       weaponAngle: fighter.weaponAngle,
       chainTip: fighter.chainTip,
       isAttacking: fighter.currentMove !== null,
+      equippedWeaponId: fighter.equippedWeaponId,
     });
 
     ctx.restore();
@@ -762,7 +767,24 @@ export class InkRenderer {
       if (curr.alpha <= 0.02) continue;
       const tRatio = i / f.slashTrail.length;
 
-      if (style === 'claws') {
+      if (style === 'kick') {
+        // Dramatic sweeping martial-arts wind crescent + crisp inner ink streak
+        ctx.strokeStyle = curr.color;
+        ctx.globalAlpha = curr.alpha * 0.88;
+        ctx.lineWidth = Math.max(3, curr.width * 1.45 * tRatio);
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y);
+        ctx.lineTo(curr.x, curr.y);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#F4EFE4';
+        ctx.globalAlpha = curr.alpha * 0.65;
+        ctx.lineWidth = Math.max(1.6, curr.width * 0.4 * tRatio);
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y - 4);
+        ctx.lineTo(curr.x, curr.y - 4);
+        ctx.stroke();
+      } else if (style === 'claws') {
         // Triple rake lines
         ctx.strokeStyle = curr.color;
         ctx.globalAlpha = curr.alpha * 0.8;
@@ -891,6 +913,7 @@ export class InkRenderer {
       weaponAngle: f.weaponAngle ?? 0,
       chainTip: f.chainTip ?? f.joints.handL,
       isAttacking: f.currentMove !== null,
+      equippedWeaponId: f.equippedWeaponId,
     });
   }
 
@@ -985,9 +1008,13 @@ export class InkRenderer {
       weaponAngle: number;
       chainTip: { x: number; y: number };
       isAttacking: boolean;
+      equippedWeaponId?: string;
     },
   ): void {
     const { char, fill, highlight, accent } = opts;
+    const resolvedWeapon = resolveFighterWeapon(char, opts.equippedWeaponId);
+    const weaponCfg = resolvedWeapon.weaponConfig;
+    const weaponAccent = resolvedWeapon.bladeTint ?? accent;
     const bulk = char.proportions.limbBulk;
     const sWidth = char.proportions.shoulderWidth;
     const billow = Math.min(18, Math.abs(opts.vx) * 0.022) * (opts.isDash ? 1.5 : 1);
@@ -1105,7 +1132,7 @@ export class InkRenderer {
     }
 
     // Katana scabbard (saya) on hip when applicable
-    if (char.weapon.sheathOnHip) {
+    if (weaponCfg.sheathOnHip) {
       ctx.save();
       ctx.translate(j.hip.x - facing * 4, j.hip.y + 1);
       ctx.rotate(facing * 0.36);
@@ -1116,7 +1143,7 @@ export class InkRenderer {
       ctx.moveTo(-facing * 36, 10);
       ctx.lineTo(facing * 14, -4);
       ctx.stroke();
-      ctx.strokeStyle = accent;
+      ctx.strokeStyle = weaponAccent;
       ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.moveTo(-facing * 8, 2);
@@ -1151,7 +1178,7 @@ export class InkRenderer {
     this.drawTaperedLimb(ctx, j.shoulder.x, j.shoulder.y, j.elbowR.x, j.elbowR.y, 7.6 * bulk, 5.4 * bulk, highlight);
     this.drawTaperedLimb(ctx, j.elbowR.x, j.elbowR.y, j.handR.x, j.handR.y, 5.4 * bulk, 3.6 * bulk, highlight);
 
-    this.drawWeapon(ctx, j, facing, char, fill, highlight, accent, {
+    this.drawWeapon(ctx, j, facing, weaponCfg, fill, highlight, weaponAccent, {
       base: opts.weaponBase,
       tip: opts.weaponTip,
       angle: opts.weaponAngle,
@@ -1484,7 +1511,7 @@ export class InkRenderer {
     ctx: CanvasRenderingContext2D,
     j: JointPositions,
     facing: 1 | -1,
-    char: CharacterConfig,
+    weaponCfg: WeaponConfig,
     fill: string,
     highlight: string,
     accent: string,
@@ -1496,12 +1523,12 @@ export class InkRenderer {
       isAttacking: boolean;
     },
   ): void {
-    const kind = char.weapon.kind;
+    const kind = weaponCfg.kind;
     ctx.save();
 
     if (kind === 'katana' || kind === 'odachi') {
-      const len = char.weapon.length;
-      const thick = char.weapon.width;
+      const len = weaponCfg.length;
+      const thick = weaponCfg.width;
       ctx.translate(w.base.x, w.base.y);
       ctx.rotate(w.angle);
       // Handle (tsuka)
@@ -1519,6 +1546,14 @@ export class InkRenderer {
       ctx.quadraticCurveTo(len * 0.5, thick * 0.35, 3, thick * 0.45);
       ctx.closePath();
       ctx.fill();
+      // Weapon accent fuller sheen
+      ctx.strokeStyle = accent;
+      ctx.globalAlpha = 0.85;
+      ctx.lineWidth = 1.75;
+      ctx.beginPath();
+      ctx.moveTo(5, 0);
+      ctx.quadraticCurveTo(len * 0.52, -thick * 0.2, len - 6, 0.2);
+      ctx.stroke();
       // Paper-white keen blade glint edge
       ctx.strokeStyle = highlight;
       ctx.globalAlpha = 0.72;
@@ -1540,7 +1575,7 @@ export class InkRenderer {
         ctx.fillStyle = fill;
         ctx.beginPath();
         ctx.moveTo(2, -4);
-        ctx.lineTo(26, 0);
+        ctx.lineTo(weaponCfg.length, 0);
         ctx.lineTo(2, 4);
         ctx.closePath();
         ctx.fill();
@@ -1554,7 +1589,7 @@ export class InkRenderer {
     } else if (kind === 'naginata') {
       ctx.translate(w.base.x, w.base.y);
       ctx.rotate(w.angle);
-      const shaftLen = char.weapon.length - 26;
+      const shaftLen = weaponCfg.length - 26;
       // Long polearm shaft
       ctx.strokeStyle = fill;
       ctx.lineWidth = 4.2;
@@ -1655,7 +1690,7 @@ export class InkRenderer {
     } else if (kind === 'staff') {
       ctx.translate(w.base.x, w.base.y);
       ctx.rotate(w.angle);
-      const len = char.weapon.length;
+      const len = weaponCfg.length;
       ctx.strokeStyle = fill;
       ctx.lineWidth = 4;
       ctx.lineCap = 'round';

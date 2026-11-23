@@ -10,18 +10,31 @@ import {
   isPerfectParry,
   resolveAttackHit,
 } from './combat';
-import { CHAPTERS, CONFIG, POSES, SKILL_NODES, STANCE_META } from './config';
+import {
+  CHAPTERS,
+  CONFIG,
+  FANCY_KICK_MOVES,
+  POSES,
+  SKILL_NODES,
+  STANCE_META,
+  STORY_PROLOGUE,
+} from './config';
 import { EchoRecorder } from './echo';
 import { computeAIInput } from './ai';
 import {
+  buyWeapon,
+  canBuyWeapon,
   canUnlockCharacter,
   canUnlockSkill,
   createInitialSaveData,
   equipSkillToSlot,
+  equipWeapon,
+  markPrologueSeen,
   selectCharacter,
   unlockCharacter,
   unlockSkill,
 } from './save';
+import { getWeaponItem, resolveFighterWeapon, WEAPONS } from './weapons';
 
 test('procedural FK computes grounded skeleton joints cleanly', () => {
   const joints = computeJointPositions(400, CONFIG.groundY, 1, POSES.idleCrane);
@@ -369,3 +382,170 @@ test('10-character MOBA roster configuration, skill constellation, and unlocks w
   save = equipSkillToSlot(save, 'whirlwind_kick', 0);
   assert.equal(save.equippedSkills[0], 'whirlwind_kick');
 });
+
+test('fancy kicks execute stance variants, hurricane combo, sweep, dropkick, and dual-foot hitboxes', () => {
+  const f1 = createFighter({
+    id: 1,
+    characterId: 'kenshin',
+    name: 'Kenshin',
+    x: 400,
+    facing: 1,
+    isAI: false,
+    personality: 'balanced',
+    maxHp: 120,
+    stance: 'crane',
+    equippedSkills: ['kenshin_quickdraw', 'kenshin_parry_flash', 'kenshin_crescent'],
+    accentColor: '#B8292F',
+  });
+  const f2 = createFighter({
+    id: 2,
+    characterId: 'benkei',
+    name: 'Benkei',
+    x: 465,
+    facing: -1,
+    isAI: true,
+    personality: 'defensive',
+    maxHp: 160,
+    stance: 'tiger',
+    equippedSkills: ['benkei_iron_sweep', 'benkei_bastion_charge', 'benkei_sky_bell'],
+    accentColor: '#8A5A2B',
+  });
+
+  const craneKick = getMoveForAction(f1, 'kick')!;
+  assert.equal(craneKick.name, FANCY_KICK_MOVES.crane.name);
+  assert.equal(craneKick.trailStyle, 'kick');
+
+  f1.stance = 'tiger';
+  assert.equal(getMoveForAction(f1, 'kick')!.name, FANCY_KICK_MOVES.tiger.name);
+
+  f1.stance = 'serpent';
+  assert.equal(getMoveForAction(f1, 'kick')!.name, FANCY_KICK_MOVES.serpent.name);
+
+  const sweep = getMoveForAction(f1, 'crouch_kick')!;
+  assert.equal(sweep.kind, 'crouch');
+  assert.equal(sweep.isLow, true);
+  assert.equal(sweep.trailStyle, 'kick');
+  assert.equal(sweep.spinArc, true);
+
+  const dropkick = getMoveForAction(f1, 'air_kick')!;
+  assert.equal(dropkick.activeLimb, 'bothFeet');
+
+  const hurricane = getMoveForAction(f1, 'kick_combo')!;
+  assert.equal(hurricane.activeLimb, 'bothFeet');
+  assert.equal(hurricane.spinArc, true);
+  assert.ok((hurricane.multiHitCount ?? 1) >= 2);
+
+  f1.currentMove = hurricane;
+  f1.action = 'kick_combo';
+  f1.actionTimer = hurricane.startup * STANCE_META[f1.stance].startupMult + 0.04;
+  for (let i = 0; i < 14; i++) {
+    updateFighterAnimation(f1, 1 / 60);
+    updateFighterAnimation(f2, 1 / 60);
+  }
+  const boxes = getMoveHitboxes(f1);
+  assert.ok(boxes.length >= 2, 'bothFeet kicks must emit at least two foot hitboxes');
+  const hit = checkMoveHit(f1, f2);
+  assert.equal(hit.hit, true, '360° Ink Hurricane Kick must connect in striking range');
+});
+
+test('Armory weapons can be bought with Coins OR SP, equipped, and apply combat & lifesteal perks', () => {
+  assert.ok(WEAPONS.length >= 8, 'Armory must include rich weapon selection');
+  let save = createInitialSaveData();
+  assert.equal(save.coins, 120);
+  assert.equal(save.spiritPoints, 50);
+
+  // Buy Bamboo Bokken using Coins (costCoins: 60)
+  assert.equal(canBuyWeapon(save, 'bamboo_bokken', 'coins'), true);
+  save = buyWeapon(save, 'bamboo_bokken', 'coins');
+  assert.equal(save.coins, 60);
+  assert.equal(save.unlockedWeapons.includes('bamboo_bokken'), true);
+  assert.equal(save.equippedWeaponId, 'bamboo_bokken');
+
+  // Cannot buy expensive Blood Odachi with insufficient Coins/SP
+  assert.equal(canBuyWeapon(save, 'blood_odachi', 'coins'), false);
+  assert.equal(canBuyWeapon(save, 'blood_odachi', 'sp'), false);
+
+  // Earn SP and buy Jade Wind Katana using Spirit Points (costSP: 65)
+  save.spiritPoints = 100;
+  assert.equal(canBuyWeapon(save, 'jade_wind_katana', 'sp'), true);
+  save = buyWeapon(save, 'jade_wind_katana', 'sp');
+  assert.equal(save.spiritPoints, 35);
+  assert.equal(save.unlockedWeapons.includes('jade_wind_katana'), true);
+  assert.equal(save.equippedWeaponId, 'jade_wind_katana');
+
+  // Switch back to already owned weapon
+  save = equipWeapon(save, 'bamboo_bokken');
+  assert.equal(save.equippedWeaponId, 'bamboo_bokken');
+
+  // Verify Celestial Muramasa applies damage multiplier and +2 HP lifesteal on clean hit
+  const attacker = createFighter({
+    id: 1,
+    characterId: 'kenshin',
+    name: 'Kenshin',
+    x: 400,
+    facing: 1,
+    isAI: false,
+    personality: 'balanced',
+    maxHp: 120,
+    stance: 'crane',
+    equippedSkills: ['kenshin_quickdraw', 'kenshin_parry_flash', 'kenshin_crescent'],
+    accentColor: '#B8292F',
+    equippedWeaponId: 'celestial_muramasa',
+  });
+  attacker.hp = 80;
+  const defender = createFighter({
+    id: 2,
+    characterId: 'benkei',
+    name: 'Benkei',
+    x: 460,
+    facing: -1,
+    isAI: true,
+    personality: 'defensive',
+    maxHp: 200,
+    stance: 'tiger',
+    equippedSkills: ['benkei_iron_sweep', 'benkei_bastion_charge', 'benkei_sky_bell'],
+    accentColor: '#8A5A2B',
+  });
+
+  const resolved = resolveFighterWeapon(CHARACTERS.kenshin, attacker.equippedWeaponId);
+  assert.equal(resolved.lifestealOnHit, 2);
+  assert.ok(resolved.damageMult > 1.2);
+  assert.equal(getWeaponItem('celestial_muramasa').costCoins > 0, true);
+
+  const strike = getMoveForAction(attacker, 'heavy')!;
+  const res = resolveAttackHit({
+    attacker,
+    defender,
+    move: strike,
+    hitX: 430,
+    hitY: 420,
+    nowMs: 500,
+    rng: () => 0.99,
+  });
+  assert.equal(res.connected, true);
+  assert.equal(attacker.hp, 82, 'Celestial Muramasa must heal +2 HP on clean hit');
+});
+
+test('Prologue story and all 20 level story beats exist and track progression', () => {
+  assert.equal(STORY_PROLOGUE.length, 3, 'Pre-gameplay prologue should contain 3 story scrolls');
+  for (const beat of STORY_PROLOGUE) {
+    assert.ok(beat.title.length > 0 && beat.line.length > 20);
+  }
+
+  let totalLevels = 0;
+  for (const ch of CHAPTERS) {
+    for (const duel of ch.duels) {
+      totalLevels += 1;
+      assert.ok(duel.storyBeat, `Level ${totalLevels} (${duel.name}) must include a storyBeat`);
+      assert.ok(duel.storyBeat!.title.length > 0);
+      assert.ok(duel.storyBeat!.line.length > 20);
+    }
+  }
+  assert.equal(totalLevels, 20);
+
+  let save = createInitialSaveData();
+  assert.equal(save.hasSeenPrologue, false);
+  save = markPrologueSeen(save);
+  assert.equal(save.hasSeenPrologue, true);
+});
+

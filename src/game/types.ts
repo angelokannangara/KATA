@@ -12,6 +12,7 @@ export type GameScreen =
   | 'playing'
   | 'paused'
   | 'skill_tree'
+  | 'armory'
   | 'match_over';
 
 export type GameMode = 'chapter' | 'dojo' | 'versus';
@@ -68,7 +69,29 @@ export type TrailStyle =
   | 'odachi'
   | 'claws'
   | 'chain'
-  | 'mist';
+  | 'mist'
+  | 'kick';
+
+export interface WeaponItem {
+  id: string;
+  name: string;
+  subtitle: string;
+  kind: WeaponKind | 'signature';
+  tier: 0 | 1 | 2 | 3;
+  costCoins: number;
+  costSP: number;
+  damageMult: number;
+  speedMult: number;
+  reachBonus: number;
+  flowBonus: number;
+  guardBreakMult: number;
+  lifestealOnHit?: number;
+  critChance?: number;
+  bladeTint?: string;
+  trailStyle?: TrailStyle;
+  perkLabel: string;
+  description: string;
+}
 
 export interface BodyProportions {
   heightScale: number; // 0.92 .. 1.12
@@ -155,6 +178,8 @@ export type ActionKind =
   | 'parry_counter'
   | 'light'
   | 'heavy'
+  | 'kick'
+  | 'kick_combo'
   | 'crouch_attack'
   | 'air_attack'
   | 'skill_0'
@@ -198,13 +223,21 @@ export interface JointPositions {
   footR: { x: number; y: number };
 }
 
-export type LimbTarget = 'handR' | 'handL' | 'footR' | 'footL' | 'torso' | 'bothHands' | 'weaponTip';
+export type LimbTarget =
+  | 'handR'
+  | 'handL'
+  | 'footR'
+  | 'footL'
+  | 'bothFeet'
+  | 'torso'
+  | 'bothHands'
+  | 'weaponTip';
 
 export interface MoveDefinition {
   id: string;
   name: string;
   stance: StanceId;
-  kind: 'light' | 'heavy' | 'crouch' | 'air' | 'skill' | 'ultimate';
+  kind: 'light' | 'heavy' | 'kick' | 'crouch' | 'air' | 'skill' | 'ultimate';
   startup: number;
   active: number;
   recovery: number;
@@ -226,6 +259,7 @@ export interface MoveDefinition {
   isCounter?: boolean;
   isTeleport?: boolean;
   isClone?: boolean;
+  spinArc?: boolean;
   spawnsProjectile?: boolean;
   multiHitCount?: number;
   invulnerableDuringStartup?: boolean;
@@ -316,6 +350,7 @@ export interface InkClone {
 export interface FighterState {
   id: 1 | 2;
   characterId: string;
+  equippedWeaponId?: string;
   name: string;
   isAI: boolean;
   personality: AIPersonality;
@@ -377,6 +412,7 @@ export interface FighterState {
   aiComboQueue: (
     | 'light'
     | 'heavy'
+    | 'kick'
     | 'crouch'
     | 'dash_fwd'
     | 'dash_back'
@@ -399,6 +435,7 @@ export interface InputSnapshot {
   block: boolean;
   justLight: boolean;
   justHeavy: boolean;
+  justKick?: boolean;
   justDash: boolean;
   justJump: boolean;
   justBlock: boolean;
@@ -416,6 +453,7 @@ export interface InputSnapshot {
 export type EchoRecordedToken =
   | 'L'
   | 'H'
+  | 'FK'
   | 'C'
   | 'A'
   | 'D_FWD'
@@ -457,6 +495,11 @@ export interface StageTheme {
   motif: 'bamboo' | 'torii' | 'pagoda' | 'bridge' | 'eclipse';
 }
 
+export interface StoryBeat {
+  title: string;
+  line: string;
+}
+
 export interface DuelOpponent {
   characterId: string;
   name: string;
@@ -468,6 +511,7 @@ export interface DuelOpponent {
   skills: [string, string, string];
   isEcho?: boolean;
   quote: string;
+  storyBeat?: StoryBeat;
 }
 
 export interface ChapterConfig {
@@ -490,10 +534,14 @@ export interface GameSettings {
 
 export interface SaveData {
   spiritPoints: number;
+  coins: number;
   unlockedSkills: string[];
   equippedSkills: [string, string, string];
   unlockedCharacters: string[];
   selectedCharacterId: string;
+  unlockedWeapons: string[];
+  equippedWeaponId: string;
+  hasSeenPrologue: boolean;
   currentChapter: number;
   currentDuel: number;
   highestChapter: number;
@@ -521,6 +569,11 @@ export interface MatchStats {
     parries: number;
     noDamage: number;
     comboBonus: number;
+    total: number;
+  };
+  coinsEarned: {
+    win: number;
+    style: number;
     total: number;
   };
   isChapterClear: boolean;
@@ -557,6 +610,7 @@ export interface HUDState {
   ultimateOverlay: UltimateOverlayState | null;
   p1: {
     characterId: string;
+    equippedWeaponName?: string;
     name: string;
     hp: number;
     maxHp: number;

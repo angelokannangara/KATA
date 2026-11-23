@@ -3,6 +3,7 @@ import {
   Anchor,
   ArrowLeft,
   Check,
+  Coins,
   Crosshair,
   Flame,
   Ghost,
@@ -12,6 +13,7 @@ import {
   Shield,
   Skull,
   Sparkles,
+  Sword,
   Swords,
   Unlock,
   Zap,
@@ -19,6 +21,7 @@ import {
 import { CHARACTER_LIST, getCharacterConfig } from '../game/characters';
 import { STANCE_META } from '../game/config';
 import { CharacterRole, GameMode, SaveData } from '../game/types';
+import { getWeaponItem } from '../game/weapons';
 import { CharacterPortraitCanvas } from './CharacterPortraitCanvas';
 
 interface CharacterSelectModalProps {
@@ -26,6 +29,7 @@ interface CharacterSelectModalProps {
   mode: GameMode;
   onSelectCharacter: (characterId: string) => void;
   onUnlockCharacter: (characterId: string) => void;
+  onOpenArmory?: () => void;
   onLockIn: (p1CharacterId: string, p2CharacterId?: string) => void;
   onBack: () => void;
 }
@@ -55,18 +59,22 @@ function RoleIcon({ role, className = 'w-3.5 h-3.5' }: { role: CharacterRole; cl
   }
 }
 
-const PREVIEW_CYCLE: ('light' | 'heavy' | 'skill_0' | 'skill_1' | 'skill_2' | 'ultimate')[] = [
-  'light',
-  'heavy',
-  'skill_0',
-  'skill_1',
-  'skill_2',
-  'ultimate',
-];
+const PREVIEW_CYCLE: (
+  | 'light'
+  | 'heavy'
+  | 'kick'
+  | 'kick_combo'
+  | 'skill_0'
+  | 'skill_1'
+  | 'skill_2'
+  | 'ultimate'
+)[] = ['light', 'kick', 'kick_combo', 'heavy', 'skill_0', 'skill_1', 'skill_2', 'ultimate'];
 
 const PREVIEW_LABELS: Record<(typeof PREVIEW_CYCLE)[number], string> = {
   light: 'Light',
   heavy: 'Heavy',
+  kick: 'Kick F',
+  kick_combo: '360° Kick',
   skill_0: 'Skill U',
   skill_1: 'Skill I',
   skill_2: 'Skill O',
@@ -78,6 +86,7 @@ export const CharacterSelectModal: React.FC<CharacterSelectModalProps> = ({
   mode,
   onSelectCharacter,
   onUnlockCharacter,
+  onOpenArmory,
   onLockIn,
   onBack,
 }) => {
@@ -187,9 +196,26 @@ export const CharacterSelectModal: React.FC<CharacterSelectModalProps> = ({
               </div>
             )}
 
+            <div className="inline-flex items-center gap-1 font-mono text-xs sm:text-sm font-bold px-2.5 py-1 border border-[var(--ink-border)] text-[var(--ink)] tabular-nums">
+              <Coins className="w-3.5 h-3.5 text-[var(--gold)]" aria-hidden="true" />
+              <span>{save.coins}</span>
+            </div>
+
             <div className="font-mono text-xs sm:text-sm font-bold px-3 py-1 border border-[var(--ink-border)] text-[var(--ink)] tabular-nums">
               {save.spiritPoints} SP
             </div>
+
+            {onOpenArmory && (
+              <button
+                type="button"
+                onClick={onOpenArmory}
+                className="kata-btn inline-flex items-center gap-1.5 px-2.5 py-1 text-xs sm:text-sm font-medium border border-[var(--ink-border)] bg-[var(--paper-card)] text-[var(--ink)] hover:border-[var(--ink)] cursor-pointer"
+              >
+                <Sword className="w-3.5 h-3.5 text-[var(--gold)]" aria-hidden="true" />
+                <span className="hidden sm:inline">{getWeaponItem(save.equippedWeaponId).name}</span>
+                <span className="sm:hidden">Armory</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -291,6 +317,7 @@ export const CharacterSelectModal: React.FC<CharacterSelectModalProps> = ({
                 <div className="relative h-52 sm:h-56 sm:w-48 lg:w-full xl:w-52 shrink-0 border border-[var(--ink-border)] bg-[var(--paper-card)] overflow-hidden">
                   <CharacterPortraitCanvas
                     characterId={inspected.id}
+                    equippedWeaponId={pickingSlot === 1 ? save.equippedWeaponId : 'default'}
                     darkMode={save.settings.darkMode}
                     animated={true}
                     previewAction={previewAction}
