@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --paper: #f4efe4;
+    --paper-dim: #e8e0cf;
+    --paper-card: rgba(244, 239, 228, 0.94);
+    --ink: #141311;
+    --ink-muted: #524d46;
+    --ink-border: rgba(20, 19, 17, 0.24);
+    --ink-track: rgba(20, 19, 17, 0.12);
+    --crimson: #b8292f;
+    --jade: #1f6e58;
+    --gold: #b8861e;
+    --ground-band: #141311;
+    --ground-text: #e8e0cf;
+  }
+
+  .dark {
+    --paper: #171614;
+    --paper-dim: #211f1c;
+    --paper-card: rgba(28, 26, 23, 0.95);
+    --ink: #efe9dc;
+    --ink-muted: #a69e90;
+    --ink-border: rgba(239, 233, 220, 0.24);
+    --ink-track: rgba(239, 233, 220, 0.14);
+    --crimson: #d6454b;
+    --jade: #47a688;
+    --gold: #d6a438;
+    --ground-band: #0d0c0b;
+    --ground-text: #d8d0c1;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    touch-action: none;
+  }
+}
+
+.font-display {
+  font-family: 'Shippori Mincho', 'Palatino Linotype', Georgia, serif;
+}
+
+.font-mono {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Polished UI button micro-interactions (2px radius, subtle shadow, hover lift, focus ring) */
+.kata-btn {
+  border-radius: 2px;
+  box-shadow: 0 2px 6px rgba(20, 19, 17, 0.1);
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.kata-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(20, 19, 17, 0.16);
+}
+
+.kata-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.kata-btn:focus-visible {
+  outline: 2px solid var(--crimson);
+  outline-offset: 2px;
+}
+
+/* Brush announcement & callout quick scale-in animation */
+@keyframes brushScaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.76) translateY(6px);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.06) translateY(-1px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-brush-in {
+  animation: brushScaleIn 210ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes skillReadyPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 239, 228, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 2px currentColor;
+  }
+}
+
+.skill-ready-pulse {
+  animation: skillReadyPulse 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

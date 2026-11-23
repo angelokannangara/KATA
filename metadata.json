@@ -1,0 +1,6 @@
+{
+  "name": "KATA: Ink & Echo",
+  "description": "A minimal ink-brush 2D martial arts fighting game featuring procedural skeletal animation, three-stance combat, a star-constellation skill tree, and an Echo boss that learns your own fighting style.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
