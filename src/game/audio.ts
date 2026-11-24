@@ -12,6 +12,7 @@ export class SoundEngine {
   private musicEnabled = true;
   private ambientTimer: number | null = null;
   private ambientStep = 0;
+  private recDest: MediaStreamAudioDestinationNode | null = null;
 
   public init(): void {
     if (typeof window === 'undefined') return;
@@ -43,6 +44,17 @@ export class SoundEngine {
       data[i] = Math.random() * 2 - 1;
     }
     return buffer;
+  }
+
+  /** Audio stream of everything the engine plays (used by the story film recorder). */
+  public getRecordingStream(): MediaStream | null {
+    this.init();
+    if (!this.ctx || !this.masterGain) return null;
+    if (!this.recDest) {
+      this.recDest = this.ctx.createMediaStreamDestination();
+      this.masterGain.connect(this.recDest);
+    }
+    return this.recDest.stream;
   }
 
   public setVolume(v: number): void {

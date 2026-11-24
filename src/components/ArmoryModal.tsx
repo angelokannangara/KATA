@@ -37,6 +37,8 @@ export const ArmoryModal: React.FC<ArmoryModalProps> = ({
 }) => {
   const [inspectedId, setInspectedId] = useState<string>(save.equippedWeaponId || 'default');
   const [previewIdx, setPreviewIdx] = useState(0);
+  // Phones: list first, tap a weapon to open its detail sheet
+  const [detailOpen, setDetailOpen] = useState(false);
   const [previewAction, setPreviewAction] = useState<{
     kind: (typeof PREVIEW_SEQUENCE)[number];
     key: number;
@@ -102,7 +104,7 @@ export const ArmoryModal: React.FC<ArmoryModalProps> = ({
         {/* Main Split Panel */}
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
           {/* Left: 9-Weapon Catalog Grid */}
-          <div className="lg:w-[56%] p-3 sm:p-5 lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-[var(--ink-border)]">
+          <div className={`${detailOpen ? 'hidden lg:block ' : ''}lg:w-[56%] p-3 sm:p-5 lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-[var(--ink-border)]`}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {WEAPONS.map((w) => {
                 const owned = save.unlockedWeapons.includes(w.id);
@@ -118,6 +120,7 @@ export const ArmoryModal: React.FC<ArmoryModalProps> = ({
                     onClick={() => {
                       setInspectedId(w.id);
                       setPreviewAction(null);
+                      setDetailOpen(true);
                     }}
                     className={`relative text-left border p-3 transition-transform hover:-translate-y-0.5 cursor-pointer flex flex-col justify-between bg-[var(--paper-card)] ${
                       active
@@ -192,8 +195,16 @@ export const ArmoryModal: React.FC<ArmoryModalProps> = ({
           </div>
 
           {/* Right: Live Animated Weapon Preview & Purchase Panel */}
-          <div className="lg:w-[44%] p-4 sm:p-5 flex flex-col justify-between bg-[var(--paper)] lg:overflow-y-auto">
+          <div className={`${detailOpen ? 'flex' : 'hidden lg:flex'} lg:w-[44%] p-4 sm:p-5 flex-col justify-between bg-[var(--paper)] lg:overflow-y-auto`}>
             <div>
+              <button
+                type="button"
+                onClick={() => setDetailOpen(false)}
+                className="kata-btn lg:hidden mb-3 inline-flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>All Weapons</span>
+              </button>
               <div className="relative h-56 sm:h-60 w-full border border-[var(--ink-border)] bg-[var(--paper-card)] overflow-hidden">
                 <CharacterPortraitCanvas
                   characterId={activeChar.id}
@@ -296,7 +307,7 @@ export const ArmoryModal: React.FC<ArmoryModalProps> = ({
             </div>
 
             {/* Purchase / Equip Actions */}
-            <div className="mt-5 pt-4 border-t border-[var(--ink-border)] flex flex-wrap items-center justify-between gap-2.5">
+            <div className="mt-5 pt-4 border-t border-[var(--ink-border)] flex flex-wrap items-center justify-between gap-2.5 sticky bottom-0 bg-[var(--paper)] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               {isOwned ? (
                 <button
                   type="button"

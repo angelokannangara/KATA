@@ -166,3 +166,16 @@ body::after {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ===== Phone / touch polish: bigger text and tap targets ===== */
+@media (max-width: 640px), (pointer: coarse) {
+  .text-\[10px\] { font-size: 12px; }
+  .text-\[11px\] { font-size: 13px; }
+  .text-xs { font-size: 13px; line-height: 1.45; }
+  .kata-btn { min-height: 44px; }
+  select, input[type='checkbox'] { min-height: 24px; }
+}
+
+@media (max-width: 640px) {
+  .kata-btn { padding-left: 14px; padding-right: 14px; }
+}

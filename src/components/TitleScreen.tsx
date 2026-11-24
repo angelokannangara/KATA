@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   BookOpen,
+  Clapperboard,
   Coins,
   Orbit,
   SlidersHorizontal,
@@ -22,6 +23,7 @@ interface TitleScreenProps {
   onOpenRoster: () => void;
   onOpenArmory: () => void;
   onOpenStory: () => void;
+  onOpenFilm?: () => void;
   onOpenSkillTree: () => void;
   onOpenSettings: () => void;
 }
@@ -32,6 +34,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onOpenRoster,
   onOpenArmory,
   onOpenStory,
+  onOpenFilm,
   onOpenSkillTree,
   onOpenSettings,
 }) => {
@@ -101,6 +104,18 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             <BookOpen className="w-4 h-4 stroke-[1.75]" aria-hidden="true" />
             <span>Story</span>
           </button>
+          {onOpenFilm && (
+            <button
+              type="button"
+              onClick={onOpenFilm}
+              aria-label="Watch Story Film"
+              data-nav-film="true"
+              className="kata-btn inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-medium border border-[var(--ink-border)] bg-[var(--paper-card)] text-[var(--ink)] hover:border-[var(--ink)] whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Clapperboard className="w-4 h-4 text-[var(--crimson)] stroke-[1.9]" aria-hidden="true" />
+              <span>Film</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onOpenRoster}
@@ -232,7 +247,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
       {/* Bottom Safe Margin: Compact control hint */}
       <div className="text-[11px] sm:text-xs font-mono text-[var(--ground-text)]/80 tracking-wide truncate">
-        WASD Move · J/K Strike · F Kick · L Parry · Space Dash · Q/E Stance · U/I/O Skills · P Ult
+        WASD Move · J/K or Click Strike · F Kick · L Parry · Space Dash · Q/E Stance · U/I/O Skills · P Ult
       </div>
     </div>
   );

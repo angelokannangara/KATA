@@ -1,5 +1,6 @@
-import React from 'react';
-import { ArrowRight, Check, Coins, Home, Moon, Orbit, Play, RotateCcw, Sun, Sword } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowRight, Check, Coins, Home, Keyboard, Moon, Orbit, Play, RotateCcw, Sun, Sword } from 'lucide-react';
+import { ControlsPanel } from './ControlsPanel';
 import { CHAPTERS } from '../game/config';
 import { describeEchoProfile } from '../game/echo';
 import { GameSettings, MatchStats, SaveData } from '../game/types';
@@ -21,9 +22,21 @@ export const PauseModal: React.FC<PauseModalProps> = ({
   onRestart,
   onReturnTitle,
 }) => {
+  const [view, setView] = useState<'main' | 'controls'>('main');
+
+  if (view === 'controls') {
+    return (
+      <div className="fixed inset-0 z-40 flex items-center justify-center p-3 bg-black/65">
+        <div className="w-full max-w-md max-h-[94vh] overflow-y-auto bg-[var(--paper)] border-2 border-[var(--ink)] p-4 sm:p-6 shadow-xl">
+          <ControlsPanel onBack={() => setView('main')} />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/65">
-      <div className="w-full max-w-md bg-[var(--paper)] border-2 border-[var(--ink)] p-6 shadow-xl">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-black/65">
+      <div className="w-full max-w-md max-h-[94vh] overflow-y-auto bg-[var(--paper)] border-2 border-[var(--ink)] p-5 sm:p-6 shadow-xl">
         <h2 className="font-display font-bold text-2xl sm:text-3xl text-[var(--ink)]">
           {isSettingsOnly ? 'Settings' : 'Paused'}
         </h2>
@@ -58,6 +71,18 @@ export const PauseModal: React.FC<PauseModalProps> = ({
               className="w-4 h-4 accent-[var(--crimson)] cursor-pointer"
             />
           </label>
+
+          <button
+            type="button"
+            onClick={() => setView('controls')}
+            className="kata-btn w-full inline-flex items-center justify-between gap-2 px-4 py-2.5 text-sm cursor-pointer"
+          >
+            <span className="inline-flex items-center gap-2">
+              <Keyboard className="w-4 h-4" aria-hidden="true" />
+              Controls &amp; Key Bindings
+            </span>
+            <span className="text-[var(--ink-muted)] text-xs">Keyboard · Mouse</span>
+          </button>
 
           <label className="flex items-center justify-between gap-3 cursor-pointer">
             <span className="font-medium text-[var(--ink)]">Screen Shake</span>
@@ -174,8 +199,8 @@ export const MatchOverModal: React.FC<MatchOverModalProps> = ({
   const won = stats.winner === 1;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/70">
-      <div className="w-full max-w-lg bg-[var(--paper)] border-2 border-[var(--ink)] p-6 md:p-7 shadow-xl">
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-black/70">
+      <div className="w-full max-w-lg max-h-[94vh] overflow-y-auto bg-[var(--paper)] border-2 border-[var(--ink)] p-5 md:p-7 shadow-xl">
         <div className="text-xs font-semibold uppercase tracking-widest text-[var(--ink-muted)]">
           {isVersus ? 'Versus' : chapter.subtitle}
         </div>
@@ -251,8 +276,8 @@ export const MatchOverModal: React.FC<MatchOverModalProps> = ({
         )}
 
         {/* Actions */}
-        <div className="mt-6 pt-4 border-t border-[var(--ink-border)] flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-6 pt-4 border-t border-[var(--ink-border)] flex flex-col-reverse sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
+          <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={onReturnTitle}
@@ -287,7 +312,7 @@ export const MatchOverModal: React.FC<MatchOverModalProps> = ({
             type="button"
             data-start="true"
             onClick={onContinue}
-            className="kata-btn inline-flex items-center gap-1.5 px-6 py-2.5 text-sm font-semibold bg-[var(--ink)] text-[var(--paper)] hover:bg-[var(--crimson)] hover:text-[#F4EFE4] cursor-pointer"
+            className="kata-btn w-full sm:w-auto justify-center inline-flex items-center gap-1.5 px-6 py-3 text-base sm:text-sm font-semibold bg-[var(--ink)] text-[var(--paper)] hover:bg-[var(--crimson)] hover:text-[#F4EFE4] cursor-pointer"
           >
             {isVersus || !won ? (
               <RotateCcw className="w-3.5 h-3.5 stroke-[2.1]" aria-hidden="true" />

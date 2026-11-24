@@ -4,6 +4,7 @@
  * hitstop, slow-motion, Ultimate ink flashes, round state, and throttled HUD emission.
  */
 
+import { actionForCode, isActionHeld, type ControlAction } from './controls';
 import { computeAIInput, emptyInput } from './ai';
 import { updateFighterAnimation } from './animation';
 import { soundEngine } from './audio';
@@ -60,6 +61,21 @@ interface BufferedAction {
     | 'ultimate';
   expiresAt: number;
 }
+
+const P1_BUFFER_KIND: Partial<Record<ControlAction, BufferedAction['kind']>> = {
+  light: 'light',
+  heavy: 'heavy',
+  kick: 'kick',
+  dash: 'dash',
+  up: 'jump',
+  block: 'block',
+  stance_prev: 'stance_prev',
+  stance_next: 'stance_next',
+  skill_0: 'skill_0',
+  skill_1: 'skill_1',
+  skill_2: 'skill_2',
+  ultimate: 'ultimate',
+};
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -499,27 +515,23 @@ export class GameEngine {
     }
 
     if (e.repeat) return;
+    this.handleInputDown(code);
+  };
+
+  /** Shared by keyboard and mouse: records the hold and fires buffered actions. */
+  private handleInputDown = (code: string): void => {
     this.heldKeys.add(code);
 
     if (this.screen !== 'playing') return;
     soundEngine.init();
 
-    // P1 edge-triggered actions (KeyP triggers Character Ultimate!)
-    if (code === 'KeyJ') this.pushBuffer(this.p1Buffer, 'light');
-    else if (code === 'KeyK') this.pushBuffer(this.p1Buffer, 'heavy');
-    else if (code === 'KeyF') this.pushBuffer(this.p1Buffer, 'kick');
-    else if (code === 'Space') this.pushBuffer(this.p1Buffer, 'dash');
-    else if (code === 'KeyW') this.pushBuffer(this.p1Buffer, 'jump');
-    else if (code === 'KeyL') this.pushBuffer(this.p1Buffer, 'block');
-    else if (code === 'KeyQ') this.pushBuffer(this.p1Buffer, 'stance_prev');
-    else if (code === 'KeyE') this.pushBuffer(this.p1Buffer, 'stance_next');
+    // P1 edge-triggered actions (rebindable keys + mouse buttons)
+    const act = actionForCode(code);
+    const kind = act ? P1_BUFFER_KIND[act] : undefined;
+    if (kind) this.pushBuffer(this.p1Buffer, kind);
     else if (code === 'Digit1') this.pushBuffer(this.p1Buffer, 'stance_crane');
     else if (code === 'Digit2') this.pushBuffer(this.p1Buffer, 'stance_tiger');
     else if (code === 'Digit3') this.pushBuffer(this.p1Buffer, 'stance_serpent');
-    else if (code === 'KeyU') this.pushBuffer(this.p1Buffer, 'skill_0');
-    else if (code === 'KeyI') this.pushBuffer(this.p1Buffer, 'skill_1');
-    else if (code === 'KeyO') this.pushBuffer(this.p1Buffer, 'skill_2');
-    else if (code === 'KeyP') this.pushBuffer(this.p1Buffer, 'ultimate');
 
     // P2 edge-triggered actions (Local Versus)
     if (this.mode === 'versus') {
@@ -540,6 +552,22 @@ export class GameEngine {
     this.heldKeys.delete(e.code);
   };
 
+  // Mouse buttons act as pseudo key codes (Mouse0 / Mouse1 / Mouse2) on the canvas
+  private onMouseDown = (e: PointerEvent) => {
+    if (e.pointerType !== 'mouse' || this.screen !== 'playing') return;
+    if (!(e.target instanceof HTMLCanvasElement)) return;
+    e.preventDefault();
+    this.handleInputDown(`Mouse${e.button}`);
+  };
+
+  private onMouseUp = (e: PointerEvent) => {
+    if (e.pointerType === 'mouse') this.heldKeys.delete(`Mouse${e.button}`);
+  };
+
+  private onContextMenu = (e: Event) => {
+    if (this.screen === 'playing' && e.target instanceof HTMLCanvasElement) e.preventDefault();
+  };
+
   private onBlur = () => {
     this.clearHeldInputs();
   };
@@ -553,6 +581,9 @@ export class GameEngine {
   private bindInput(): void {
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('pointerdown', this.onMouseDown);
+    window.addEventListener('pointerup', this.onMouseUp);
+    window.addEventListener('contextmenu', this.onContextMenu);
     window.addEventListener('blur', this.onBlur);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
@@ -560,6 +591,9 @@ export class GameEngine {
   private unbindInput(): void {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('pointerdown', this.onMouseDown);
+    window.removeEventListener('pointerup', this.onMouseUp);
+    window.removeEventListener('contextmenu', this.onContextMenu);
     window.removeEventListener('blur', this.onBlur);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
   }
@@ -574,11 +608,11 @@ export class GameEngine {
     const snap = emptyInput();
 
     if (isP1) {
-      snap.left = this.heldKeys.has('KeyA') || this.touchState.left;
-      snap.right = this.heldKeys.has('KeyD') || this.touchState.right;
-      snap.up = this.heldKeys.has('KeyW') || this.touchState.up;
-      snap.down = this.heldKeys.has('KeyS') || this.touchState.down;
-      snap.block = this.heldKeys.has('KeyL') || this.touchState.block;
+      snap.left = isActionHeld('left', this.heldKeys) || this.touchState.left;
+      snap.right = isActionHeld('right', this.heldKeys) || this.touchState.right;
+      snap.up = isActionHeld('up', this.heldKeys) || this.touchState.up;
+      snap.down = isActionHeld('down', this.heldKeys) || this.touchState.down;
+      snap.block = isActionHeld('block', this.heldKeys) || this.touchState.block;
     } else {
       snap.left = this.heldKeys.has('ArrowLeft');
       snap.right = this.heldKeys.has('ArrowRight');

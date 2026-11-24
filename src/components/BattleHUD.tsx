@@ -4,6 +4,7 @@ import { getCharacterConfig } from '../game/characters';
 import { STANCE_META } from '../game/config';
 import { GameEngine } from '../game/engine';
 import { HUDState, SaveData } from '../game/types';
+import { TouchControls } from './TouchControls';
 
 interface BattleHUDProps {
   hud: HUDState;
@@ -23,8 +24,6 @@ export const BattleHUD: React.FC<BattleHUDProps> = ({
   onReturnTitle,
 }) => {
   const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const stickRef = useRef<HTMLDivElement | null>(null);
-  const [stickOffset, setStickOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const checkTouch = () => {
@@ -57,37 +56,6 @@ export const BattleHUD: React.FC<BattleHUDProps> = ({
   const p2GhostPct = Math.max(p2HpPct, Math.min(100, (hud.p2.ghostHp / hud.p2.maxHp) * 100));
 
   const skillKeys = ['U', 'I', 'O'] as const;
-
-  const handleStickPointer = (clientX: number, clientY: number) => {
-    const el = stickRef.current;
-    if (!el || !engineRef.current) return;
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width * 0.5;
-    const cy = rect.top + rect.height * 0.5;
-    const maxR = rect.width * 0.36;
-    const dx = clientX - cx;
-    const dy = clientY - cy;
-    const dist = Math.hypot(dx, dy);
-    const clamped = dist > maxR ? maxR / dist : 1;
-    setStickOffset({ x: dx * clamped, y: dy * clamped });
-
-    engineRef.current.setTouchDirectional({
-      left: dx < -14,
-      right: dx > 14,
-      up: dy < -22,
-      down: dy > 20,
-    });
-  };
-
-  const resetStick = () => {
-    setStickOffset({ x: 0, y: 0 });
-    engineRef.current?.setTouchDirectional({
-      left: false,
-      right: false,
-      up: false,
-      down: false,
-    });
-  };
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between">
@@ -556,129 +524,25 @@ export const BattleHUD: React.FC<BattleHUDProps> = ({
                 <div className="text-xs font-mono text-[var(--ground-text)]/70 hidden lg:block text-right">
                   {hud.mode === 'versus'
                     ? 'P2: Arrows · N/M/B · , Parry · 7/8/9'
-                    : 'F Kick · Q/E Stance · P Ultimate'}
+                    : 'Click Light · Right-click Heavy · Q/E Stance'}
                 </div>
               )}
             </div>
           )}
 
-          {/* MOBILE / TOUCH VIRTUAL CONTROLS */}
+          {/* MOBILE / TOUCH CROSS CONTROLS */}
           {showTouch && (
-            <div className="w-full flex items-end justify-between gap-2 pointer-events-auto">
-              <div
-                ref={stickRef}
-                aria-label="Movement Joystick"
-                onPointerDown={(e) => {
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  handleStickPointer(e.clientX, e.clientY);
-                }}
-                onPointerMove={(e) => {
-                  if (e.buttons > 0 || e.pressure > 0) {
-                    handleStickPointer(e.clientX, e.clientY);
-                  }
-                }}
-                onPointerUp={resetStick}
-                onPointerCancel={resetStick}
-                className="relative w-22 h-22 sm:w-26 sm:h-26 rounded-full border-2 border-white/30 bg-white/5 touch-none flex items-center justify-center shrink-0"
-              >
-                <div
-                  className="w-9 h-9 rounded-full bg-[#EFE9DC]/85"
-                  style={{
-                    transform: `translate(${stickOffset.x}px, ${stickOffset.y}px)`,
-                  }}
-                />
-              </div>
-
-              <div className="flex flex-col items-end gap-1.5">
-                <div className="flex items-center gap-1">
-                  {hud.p1.skillsMeta.map((skill, idx) => {
-                    const ready =
-                      hud.p1.skillCooldowns[idx] <= 0.05 && hud.p1.flow >= skill.flowCost;
-                    const sColor = STANCE_META[skill.stance].color;
-                    return (
-                      <button
-                        key={skill.id}
-                        type="button"
-                        onPointerDown={() =>
-                          engineRef.current?.triggerTouchButton(
-                            idx === 0 ? 'skill_0' : idx === 1 ? 'skill_1' : 'skill_2',
-                          )
-                        }
-                        className="min-w-[34px] h-9 px-2 text-xs font-mono font-bold border bg-[#1A1815] text-[#EFE9DC] rounded-[2px]"
-                        style={{
-                          borderColor: sColor,
-                          opacity: ready ? 1 : 0.45,
-                        }}
-                      >
-                        {skillKeys[idx]}
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onPointerDown={() => engineRef.current?.triggerTouchButton('ultimate')}
-                    className="min-w-[38px] h-9 px-2 text-xs font-mono font-bold border text-[#F4EFE4] rounded-[2px]"
-                    style={{
-                      borderColor: p1Char.accentColor,
-                      backgroundColor:
-                        hud.p1.flow >= hud.p1.ultimateCost ? p1Char.accentColor : '#1A1815',
-                      opacity: hud.p1.flow >= hud.p1.ultimateCost ? 1 : 0.45,
-                    }}
-                  >
-                    P
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={() => engineRef.current?.triggerTouchButton('stance')}
-                    className="min-w-[54px] h-9 px-2 text-xs font-bold border bg-[#1A1815] rounded-[2px]"
-                    style={{ borderColor: p1Stance.color, color: p1Stance.color }}
-                  >
-                    {p1Stance.kanji} {p1Stance.name}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onPointerDown={() => engineRef.current?.triggerTouchButton('block_down')}
-                    onPointerUp={() => engineRef.current?.triggerTouchButton('block_up')}
-                    onPointerCancel={() => engineRef.current?.triggerTouchButton('block_up')}
-                    className="w-10 h-10 rounded-full border-2 border-white/40 bg-[#1A1815] text-[10px] font-bold text-[#EFE9DC]"
-                  >
-                    Parry
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={() => engineRef.current?.triggerTouchButton('dash')}
-                    className="w-10 h-10 rounded-full border-2 border-white/40 bg-[#1A1815] text-[10px] font-bold text-[#EFE9DC]"
-                  >
-                    Dash
-                  </button>
-                  <button
-                    type="button"
-                    data-touch-kick="true"
-                    onPointerDown={() => engineRef.current?.triggerTouchButton('kick')}
-                    className="w-11 h-11 rounded-full border-2 border-[var(--gold)] bg-[#1A1815] text-[11px] font-bold text-[var(--gold)]"
-                  >
-                    Kick
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={() => engineRef.current?.triggerTouchButton('light')}
-                    className="w-11 h-11 rounded-full bg-[#EFE9DC] text-[#141311] text-[11px] font-bold"
-                  >
-                    Light
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={() => engineRef.current?.triggerTouchButton('heavy')}
-                    className="w-11 h-11 rounded-full bg-[var(--crimson)] text-[#F4EFE4] text-[11px] font-bold"
-                  >
-                    Heavy
-                  </button>
-                </div>
-              </div>
-            </div>
+            <TouchControls
+              engineRef={engineRef}
+              skills={hud.p1.skillsMeta.map((skill, idx) => ({
+                glyph: STANCE_META[skill.stance].kanji,
+                cost: skill.flowCost,
+                color: STANCE_META[skill.stance].color,
+                ready: hud.p1.skillCooldowns[idx] <= 0.05 && hud.p1.flow >= skill.flowCost,
+              }))}
+              ult={{ ready: hud.p1.flow >= hud.p1.ultimateCost, color: p1Char.accentColor }}
+              stance={{ kanji: p1Stance.kanji, color: p1Stance.color }}
+            />
           )}
         </div>
       </div>

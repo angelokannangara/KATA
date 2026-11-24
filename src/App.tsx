@@ -11,6 +11,7 @@ import { MatchOverModal, PauseModal } from './components/Overlays';
 import { SkillTreeModal } from './components/SkillTreeModal';
 import { StoryCardModal } from './components/StoryCardModal';
 import { TitleScreen } from './components/TitleScreen';
+import { StoryFilmModal } from './components/StoryFilmModal';
 import { VSSplashModal } from './components/VSSplashModal';
 import { getCharacterConfig } from './game/characters';
 import { CHAPTERS } from './game/config';
@@ -54,6 +55,7 @@ export default function App() {
   const [isPrologueMode, setIsPrologueMode] = useState(false);
   const [matchup, setMatchup] = useState<PendingMatchup | null>(null);
   const [showTitleSettings, setShowTitleSettings] = useState(false);
+  const [showFilm, setShowFilm] = useState(false);
   const [skillTreeReturnTo, setSkillTreeReturnTo] = useState<'title' | 'story_card' | 'match_over'>(
     'title',
   );
@@ -267,7 +269,7 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
-      if (screen === 'title' && !showTitleSettings) {
+      if (screen === 'title' && !showTitleSettings && !showFilm) {
         if (e.code === 'Enter' || e.code === 'Space') {
           e.preventDefault();
           handleStartModeFromTitle('chapter');
@@ -287,6 +289,7 @@ export default function App() {
   }, [
     screen,
     showTitleSettings,
+    showFilm,
     hud?.mode,
     handleStartModeFromTitle,
     handleTogglePause,
@@ -401,8 +404,14 @@ export default function App() {
             setSkillTreeReturnTo('title');
             syncScreen('skill_tree');
           }}
+          onOpenFilm={() => setShowFilm(true)}
           onOpenSettings={() => setShowTitleSettings(true)}
         />
+      )}
+
+      {/* Story Film (cinematic player + video export) */}
+      {screen === 'title' && showFilm && (
+        <StoryFilmModal save={save} onClose={() => setShowFilm(false)} />
       )}
 
       {/* Title Settings Modal */}
