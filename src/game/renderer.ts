@@ -39,6 +39,19 @@ export interface Particle {
 
 const PARTICLE_POOL_SIZE = 260;
 
+function mixHex(a: string, b: string, t: number): string {
+  const p = (h: string) => {
+    let x = h.replace('#', '');
+    if (x.length === 3) x = x.split('').map((c) => c + c).join('');
+    const n = parseInt(x, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const [r1, g1, b1] = p(a);
+  const [r2, g2, b2] = p(b);
+  const m = (u: number, v: number) => Math.round(u + (v - u) * t);
+  return '#' + [m(r1, r2), m(g1, g2), m(b1, b2)].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
 export class InkRenderer {
   private paperPattern: CanvasPattern | null = null;
   private backdropCache: HTMLCanvasElement | null = null;
@@ -117,16 +130,39 @@ export class InkRenderer {
     const bctx = this.backdropCache.getContext('2d');
     if (!bctx) return null;
 
-    const bgGrad = bctx.createLinearGradient(0, 0, 0, h);
-    bgGrad.addColorStop(0, stage.paper);
-    bgGrad.addColorStop(1, stage.paperDark);
-    bctx.fillStyle = bgGrad;
-    bctx.fillRect(0, 0, w, h);
-
-    const pat = this.ensurePaperPattern(bctx);
-    if (pat) {
-      bctx.fillStyle = pat;
+    if (!darkMode) {
+      // Game sky: deep night at the top, glowing stage-colored horizon, big sun
+      const a = stage.accent;
+      const sky = bctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, mixHex(a, '#05040a', 0.86));
+      sky.addColorStop(0.5, mixHex(a, '#05040a', 0.5));
+      sky.addColorStop(1, mixHex(a, '#ffffff', 0.38));
+      bctx.fillStyle = sky;
       bctx.fillRect(0, 0, w, h);
+      const sx = w * 0.72;
+      const sy = h * 0.36;
+      const sr = Math.min(w, h) * 0.55;
+      const glow = bctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+      glow.addColorStop(0, mixHex(a, '#ffffff', 0.92) + 'ff');
+      glow.addColorStop(0.2, mixHex(a, '#ffffff', 0.6) + 'bb');
+      glow.addColorStop(1, a + '00');
+      bctx.fillStyle = glow;
+      bctx.fillRect(0, 0, w, h);
+      bctx.fillStyle = mixHex(a, '#ffffff', 0.94);
+      bctx.beginPath();
+      bctx.arc(sx, sy, Math.min(w, h) * 0.09, 0, Math.PI * 2);
+      bctx.fill();
+    } else {
+      const bgGrad = bctx.createLinearGradient(0, 0, 0, h);
+      bgGrad.addColorStop(0, stage.paper);
+      bgGrad.addColorStop(1, stage.paperDark);
+      bctx.fillStyle = bgGrad;
+      bctx.fillRect(0, 0, w, h);
+      const pat = this.ensurePaperPattern(bctx);
+      if (pat) {
+        bctx.fillStyle = pat;
+        bctx.fillRect(0, 0, w, h);
+      }
     }
 
     const vig = bctx.createRadialGradient(
@@ -138,11 +174,36 @@ export class InkRenderer {
       Math.max(w, h) * 0.75,
     );
     vig.addColorStop(0, 'rgba(20, 19, 17, 0)');
-    vig.addColorStop(1, 'rgba(20, 19, 17, 0.12)');
+    vig.addColorStop(1, darkMode ? 'rgba(20, 19, 17, 0.12)' : 'rgba(4, 3, 8, 0.62)');
     bctx.fillStyle = vig;
     bctx.fillRect(0, 0, w, h);
 
     return this.backdropCache;
+  }
+
+  /** Floating embers / fireflies for atmosphere (screen space). */
+  private drawEmbers(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    stage: StageTheme,
+    time: number,
+  ): void {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = mixHex(stage.accent, '#ffffff', 0.6);
+    for (let i = 0; i < 34; i++) {
+      const sp = 10 + (i % 5) * 5;
+      const rise = 16 + (i % 4) * 7;
+      const span = width + 40;
+      const x = ((((i * 137.5 + time * sp) % span) + span) % span) - 20;
+      const y = height * 0.92 - ((i * 61 + time * rise) % (height * 0.85));
+      ctx.globalAlpha = (0.25 + 0.35 * Math.abs(Math.sin(time * 1.6 + i))) * Math.max(0, y / height);
+      ctx.beginPath();
+      ctx.arc(x, y, 1 + (i % 3) * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   public spawnBurst(params: {
@@ -301,6 +362,8 @@ export class InkRenderer {
       ctx.fillStyle = stage.paper;
       ctx.fillRect(0, 0, width, height);
     }
+
+    this.drawEmbers(ctx, width, height, stage, time);
 
     const baseScale = Math.min(width / CONFIG.arenaWidth, height / CONFIG.virtualHeight);
     const scale = Math.max(0.42, baseScale) * cameraZoom;

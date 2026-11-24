@@ -167,7 +167,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               />
             </svg>
 
-            <h1 className="font-display font-extrabold text-6xl sm:text-7xl md:text-[5rem] leading-[0.88] tracking-[0.08em] text-[var(--ink)] select-none">
+            <h1 className="kata-logo font-display font-extrabold text-6xl sm:text-7xl md:text-[5rem] leading-[0.88] tracking-[0.08em] text-[var(--ink)] select-none">
               KATA
             </h1>
 

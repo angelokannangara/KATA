@@ -76,7 +76,7 @@ export const PauseModal: React.FC<PauseModalProps> = ({
               ) : (
                 <Sun className="w-4 h-4 stroke-[1.75]" aria-hidden="true" />
               )}
-              <span>Dark Mode</span>
+              <span>Night Stage</span>
             </span>
             <input
               type="checkbox"

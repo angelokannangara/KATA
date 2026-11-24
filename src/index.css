@@ -2,34 +2,21 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
-  :root {
-    --paper: #f4efe4;
-    --paper-dim: #e8e0cf;
-    --paper-card: rgba(244, 239, 228, 0.94);
-    --ink: #141311;
-    --ink-muted: #524d46;
-    --ink-border: rgba(20, 19, 17, 0.24);
-    --ink-track: rgba(20, 19, 17, 0.12);
-    --crimson: #b8292f;
-    --jade: #1f6e58;
-    --gold: #b8861e;
-    --ground-band: #141311;
-    --ground-text: #e8e0cf;
-  }
-
+  /* KATA game palette: night ink UI with hot crimson accents */
+  :root,
   .dark {
-    --paper: #171614;
-    --paper-dim: #211f1c;
-    --paper-card: rgba(28, 26, 23, 0.95);
-    --ink: #efe9dc;
-    --ink-muted: #a69e90;
-    --ink-border: rgba(239, 233, 220, 0.24);
-    --ink-track: rgba(239, 233, 220, 0.14);
-    --crimson: #d6454b;
-    --jade: #47a688;
-    --gold: #d6a438;
-    --ground-band: #0d0c0b;
-    --ground-text: #d8d0c1;
+    --paper: #0d0b14;
+    --paper-dim: #17131f;
+    --paper-card: rgba(20, 16, 28, 0.9);
+    --ink: #f3ead6;
+    --ink-muted: #b3a9b8;
+    --ink-border: rgba(243, 234, 214, 0.22);
+    --ink-track: rgba(243, 234, 214, 0.16);
+    --crimson: #ff4a3d;
+    --jade: #3fd1a1;
+    --gold: #ffc247;
+    --ground-band: #07060b;
+    --ground-text: #e8e0cf;
   }
 
   html,
@@ -59,29 +46,82 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Polished UI button micro-interactions (2px radius, subtle shadow, hover lift, focus ring) */
+/* Game-style buttons: angled plates, accent bar, glow on hover */
 .kata-btn {
-  border-radius: 2px;
-  box-shadow: 0 2px 6px rgba(20, 19, 17, 0.1);
-  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
-    background-color 150ms ease,
-    border-color 150ms ease,
-    color 150ms ease,
-    box-shadow 150ms ease;
+  font-family: 'Rajdhani', 'Inter', system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-weight: 700;
+  border-radius: 0;
+  border: 1px solid var(--ink-border);
+  border-left: 3px solid var(--crimson);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02)), var(--paper-card);
+  color: var(--ink);
+  clip-path: polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%);
+  box-shadow: none;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), background 150ms ease,
+    color 150ms ease, filter 150ms ease;
 }
 
 .kata-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(20, 19, 17, 0.16);
+  transform: translateY(-2px);
+  background: linear-gradient(180deg, rgba(255, 74, 61, 0.35), rgba(255, 74, 61, 0.12)), var(--paper-card);
+  color: #fff;
 }
 
 .kata-btn:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.98);
 }
 
 .kata-btn:focus-visible {
-  outline: 2px solid var(--crimson);
+  outline: 2px solid var(--gold);
   outline-offset: 2px;
+}
+
+/* Primary call-to-action buttons (any kata-btn that used the solid ink style) */
+.kata-btn[data-start],
+.kata-btn.bg-\[var\(--ink\)\] {
+  background: linear-gradient(135deg, #ff5a44, #b3151f);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+  border-left-color: var(--gold);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.kata-btn[data-start]:hover:not(:disabled),
+.kata-btn.bg-\[var\(--ink\)\]:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ff7a5c, #d11f2a);
+  filter: brightness(1.1);
+}
+
+.kata-btn[data-start] {
+  font-size: 1.1em;
+  animation: startPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes startPulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.28);
+  }
+}
+
+/* Big title logo glow */
+.kata-logo {
+  text-shadow: 0 0 28px rgba(255, 74, 61, 0.55), 0 4px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* Cinematic vignette over everything */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.42) 100%);
 }
 
 /* Brush announcement & callout quick scale-in animation */

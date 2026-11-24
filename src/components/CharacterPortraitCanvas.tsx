@@ -154,7 +154,7 @@ export const CharacterPortraitCanvas: React.FC<CharacterPortraitCanvasProps> = (
         width: w,
         height: h,
         fighter: f,
-        darkMode,
+        darkMode: true,
         time,
         zoom,
       });
