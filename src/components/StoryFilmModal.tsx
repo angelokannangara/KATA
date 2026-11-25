@@ -14,7 +14,7 @@ interface StoryFilmModalProps {
 }
 
 interface FilmScene {
-  kind: 'title' | 'narration';
+  kind: 'title' | 'narration' | 'caption';
   chapter: number;
   heading: string;
   sub?: string;
@@ -23,9 +23,15 @@ interface FilmScene {
   sfx?: 'gong';
 }
 
-const FILM_W = 1280;
-const FILM_H = 720;
 const BEAT_SEC = 2.4;
+const PROMO_URL = 'https://kata-virid.vercel.app/';
+const FORMATS = {
+  '16:9': { w: 1280, h: 720, label: 'Wide 16:9' },
+  '1:1': { w: 1080, h: 1080, label: 'Square 1:1 (LinkedIn)' },
+  '4:5': { w: 1080, h: 1350, label: 'Portrait 4:5 (LinkedIn mobile)' },
+} as const;
+type FilmFormat = keyof typeof FORMATS;
+type FilmMode = 'story' | 'promo';
 const MOVES = ['light', 'heavy', 'kick', 'skill_0', 'light', 'kick_combo', 'skill_1', 'heavy'] as const;
 
 const readTime = (text: string) => Math.max(6, text.split(/\s+/).length * 0.34 + 3);
@@ -79,6 +85,34 @@ function buildScenes(): FilmScene[] {
   return scenes;
 }
 
+/** ~33 second social cut: hook, logo, five feature captions, call to action. */
+function buildPromo(): FilmScene[] {
+  const cap = (chapter: number, heading: string, sub: string): FilmScene => ({
+    kind: 'caption',
+    chapter,
+    heading,
+    sub,
+    duration: 4,
+  });
+  return [
+    { kind: 'title', chapter: 2, heading: 'Your final boss is you.', sub: 'A NEW BROWSER FIGHTING GAME', duration: 4, sfx: 'gong' },
+    { kind: 'title', chapter: 0, heading: 'KATA', sub: 'INK & ECHO', duration: 3 },
+    cap(0, 'The Echo records how you fight', 'THEN FIGHTS YOU WITH IT'),
+    cap(1, 'Procedural ink animation', 'NO SPRITES · NO ASSETS'),
+    cap(2, '10 fighters · 3 stances · skill tree', 'SAMURAI · NINJA · MONK'),
+    cap(3, 'Keyboard · mouse · touch', 'FULLY REMAPPABLE CONTROLS'),
+    cap(4, 'Built with React, TypeScript & Canvas', 'OPEN SOURCE'),
+    {
+      kind: 'title',
+      chapter: 0,
+      heading: 'Play it free',
+      sub: PROMO_URL.replace(/^https?:\/\//, '').replace(/\/$/, '').toUpperCase(),
+      duration: 6,
+      sfx: 'gong',
+    },
+  ];
+}
+
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
   const words = text.split(/\s+/);
   const lines: string[] = [];
@@ -98,7 +132,10 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): st
 
 export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const scenes = useMemo(buildScenes, []);
+  const [mode, setMode] = useState<FilmMode>('story');
+  const [format, setFormat] = useState<FilmFormat>('16:9');
+  const scenes = useMemo(() => (mode === 'promo' ? buildPromo() : buildScenes()), [mode]);
+  const dims = FORMATS[format];
   const starts = useMemo(() => {
     let acc = 0;
     return scenes.map((s) => {
@@ -143,6 +180,10 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
+    const FILM_W: number = dims.w;
+    const FILM_H: number = dims.h;
+    const wide = FILM_W / FILM_H > 1.5;
+    const K = (FILM_W / 1280) * (wide ? 1 : 1.3);
     canvas.width = FILM_W;
     canvas.height = FILM_H;
 
@@ -229,8 +270,9 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
     };
 
     const drawText = (scene: FilmScene, local: number) => {
-      const c = ctx;
+      const c = ctx as CanvasRenderingContext2D & { letterSpacing: string };
       const fadeIn = Math.min(1, local / 0.8);
+      const maxW = FILM_W * (wide ? 0.78 : 0.86);
       c.save();
       c.textAlign = 'center';
       c.shadowColor = 'rgba(0,0,0,0.85)';
@@ -238,17 +280,41 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
       if (scene.kind === 'title') {
         c.globalAlpha = fadeIn;
         c.fillStyle = '#F4ECD8';
-        c.font = `800 ${scene.heading.length > 10 ? 84 : 150}px "Shippori Mincho", Georgia, serif`;
-        c.fillText(scene.heading, FILM_W / 2, FILM_H * 0.42);
+        const fs = (scene.heading.length > 10 ? 84 : 150) * K;
+        c.font = `800 ${fs}px "Shippori Mincho", Georgia, serif`;
+        const lines = wrapText(c, scene.heading, maxW);
+        const y0 = FILM_H * 0.42 - (lines.length - 1) * fs * 0.55;
+        lines.forEach((ln, i) => c.fillText(ln, FILM_W / 2, y0 + i * fs * 1.1));
         if (scene.sub) {
-          c.font = '700 30px Rajdhani, Inter, sans-serif';
+          c.font = `700 ${30 * K}px Rajdhani, Inter, sans-serif`;
           c.fillStyle = '#FF6A55';
-          (c as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '10px';
-          c.fillText(scene.sub, FILM_W / 2, FILM_H * 0.42 + 56);
-          (c as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '0px';
+          c.letterSpacing = `${8 * K}px`;
+          c.fillText(scene.sub, FILM_W / 2, y0 + (lines.length - 1) * fs * 1.1 + 56 * K);
+          c.letterSpacing = '0px';
+        }
+      } else if (scene.kind === 'caption') {
+        const g = c.createLinearGradient(0, FILM_H * 0.5, 0, FILM_H);
+        g.addColorStop(0, 'rgba(0,0,0,0)');
+        g.addColorStop(1, 'rgba(0,0,0,0.82)');
+        c.shadowBlur = 0;
+        c.fillStyle = g;
+        c.fillRect(0, FILM_H * 0.5, FILM_W, FILM_H * 0.5);
+        c.shadowBlur = 14;
+        const rise = (1 - Math.min(1, local / 0.45)) * 24 * K;
+        c.globalAlpha = Math.min(1, local / 0.4);
+        c.fillStyle = '#F4ECD8';
+        c.font = `800 ${58 * K}px Rajdhani, Inter, sans-serif`;
+        const lines = wrapText(c, scene.heading, maxW);
+        const y0 = FILM_H * 0.68 + rise;
+        lines.forEach((ln, i) => c.fillText(ln, FILM_W / 2, y0 + i * 66 * K));
+        if (scene.sub) {
+          c.font = `700 ${26 * K}px Rajdhani, Inter, sans-serif`;
+          c.fillStyle = '#FFC247';
+          c.letterSpacing = `${6 * K}px`;
+          c.fillText(scene.sub, FILM_W / 2, y0 + lines.length * 66 * K + 6 * K);
+          c.letterSpacing = '0px';
         }
       } else if (scene.text) {
-        // dark gradient behind subtitles
         const g = c.createLinearGradient(0, FILM_H * 0.55, 0, FILM_H);
         g.addColorStop(0, 'rgba(0,0,0,0)');
         g.addColorStop(1, 'rgba(0,0,0,0.78)');
@@ -258,20 +324,19 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
         c.shadowBlur = 12;
         c.globalAlpha = Math.min(1, local / 0.5);
         c.fillStyle = '#FFC247';
-        c.font = '700 26px Rajdhani, Inter, sans-serif';
-        (c as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '5px';
+        c.font = `700 ${26 * K}px Rajdhani, Inter, sans-serif`;
+        c.letterSpacing = `${5 * K}px`;
         c.fillText(scene.heading.toUpperCase(), FILM_W / 2, FILM_H * 0.7);
-        (c as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '0px';
-        c.font = 'italic 32px "Shippori Mincho", Georgia, serif';
+        c.letterSpacing = '0px';
+        c.font = `italic ${32 * K}px "Shippori Mincho", Georgia, serif`;
         c.fillStyle = '#F4ECD8';
-        const lines = wrapText(c, scene.text, FILM_W * 0.78);
-        const totalChars = scene.text.length;
-        let remaining = Math.floor(totalChars * Math.min(1, local / (scene.duration * 0.62)));
+        const lines = wrapText(c, scene.text, maxW);
+        let remaining = Math.floor(scene.text.length * Math.min(1, local / (scene.duration * 0.62)));
         lines.forEach((ln, i) => {
           const shown = ln.slice(0, Math.max(0, remaining));
           remaining -= ln.length + 1;
           c.globalAlpha = 1;
-          c.fillText(shown, FILM_W / 2, FILM_H * 0.7 + 52 + i * 44);
+          c.fillText(shown, FILM_W / 2, FILM_H * 0.7 + 52 * K + i * 44 * K);
         });
       }
       c.restore();
@@ -305,7 +370,7 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
       const local = Math.max(0, t - starts[si]);
 
       // choreography: alternating attacks on a fixed beat
-      if (scene.kind === 'narration') {
+      if (scene.kind !== 'title') {
         const idx = Math.floor(local / BEAT_SEC) + si * 3;
         const into = local % BEAT_SEC;
         if (idx !== beatIndex && into < 0.5 && playingRef.current) {
@@ -356,7 +421,7 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
 
       shake *= 0.86;
       flash *= 0.84;
-      const zoom = 1.12 + 0.1 * (local / scene.duration) + (scene.kind === 'title' ? 0.06 : 0);
+      const zoom = (1.12 + 0.1 * (local / scene.duration) + (scene.kind === 'title' ? 0.06 : 0)) * (wide ? 1 : 1.4);
 
       renderer.renderFrame({
         ctx,
@@ -384,9 +449,21 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
         ctx.fillRect(0, 0, FILM_W, FILM_H);
       }
       drawText(scene, local);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, FILM_W, FILM_H * 0.085);
-      ctx.fillRect(0, FILM_H * (1 - 0.085), FILM_W, FILM_H * 0.085);
+      if (mode === 'promo') {
+        ctx.save();
+        ctx.globalAlpha = 0.75;
+        ctx.fillStyle = '#F4ECD8';
+        ctx.font = `700 ${20 * K}px Rajdhani, Inter, sans-serif`;
+        ctx.textAlign = 'left';
+        (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${4 * K}px`;
+        ctx.fillText('KATA · INK & ECHO', 36 * K, (wide ? FILM_H * 0.085 : 0) + 46 * K);
+        ctx.restore();
+      }
+      if (wide) {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, FILM_W, FILM_H * 0.085);
+        ctx.fillRect(0, FILM_H * (1 - 0.085), FILM_W, FILM_H * 0.085);
+      }
       const fade = Math.min(1, local / 0.7, (scene.duration - local) / 0.7);
       if (fade < 1) {
         ctx.fillStyle = `rgba(0,0,0,${1 - Math.max(0, fade)})`;
@@ -402,7 +479,7 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
       cancelAnimationFrame(raf);
       soundEngine.stopAmbientLoop();
     };
-  }, [save.selectedCharacterId, save.equippedWeaponId, scenes, starts, total, stopRecording]);
+  }, [save.selectedCharacterId, save.equippedWeaponId, scenes, starts, total, stopRecording, dims.w, dims.h, mode]);
 
   // clean up object URL
   useEffect(
@@ -427,12 +504,12 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
     soundEngine.init();
     const stream = canvas.captureStream(30);
     soundEngine.getRecordingStream()?.getAudioTracks().forEach((t) => stream.addTrack(t));
-    const mime = [
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm',
-      'video/mp4',
-    ].find((m) => MediaRecorder.isTypeSupported(m));
+    const webm = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    // LinkedIn needs MP4, so the promo prefers it when the browser can record it
+    const mp4 = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4'];
+    const mime = (mode === 'promo' ? [...mp4, ...webm] : [...webm, ...mp4]).find((m) =>
+      MediaRecorder.isTypeSupported(m),
+    );
     const rec = new MediaRecorder(stream, {
       ...(mime ? { mimeType: mime } : {}),
       videoBitsPerSecond: 6_000_000,
@@ -462,7 +539,7 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
         <div className="flex items-center justify-between gap-3 mb-3">
           <h2 className="font-display font-bold text-xl sm:text-2xl text-[var(--ink)] flex items-center gap-2">
             <Clapperboard className="w-5 h-5" aria-hidden="true" />
-            Story Film
+            Film Studio
           </h2>
           <button
             type="button"
@@ -477,7 +554,49 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
           </button>
         </div>
 
-        <div className="relative w-full aspect-video bg-black border border-[var(--ink-border)] overflow-hidden">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {(['story', 'promo'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              disabled={recording}
+              onClick={() => {
+                setMode(m);
+                setFormat(m === 'promo' ? '1:1' : '16:9');
+                tRef.current = 0;
+                setPlay(false);
+                setProgress(0);
+                setVideoUrl(null);
+              }}
+              className={`kata-btn px-3 py-2 text-sm cursor-pointer disabled:opacity-50 ${mode === m ? 'bg-[var(--ink)] text-[var(--paper)]' : ''}`}
+            >
+              {m === 'story' ? 'Story Film' : 'LinkedIn Promo · 33s'}
+            </button>
+          ))}
+          <select
+            value={format}
+            disabled={recording}
+            aria-label="Video format"
+            onChange={(e) => {
+              setFormat(e.target.value as FilmFormat);
+              tRef.current = 0;
+              setPlay(false);
+              setProgress(0);
+            }}
+            className="kata-btn px-3 py-2 text-sm bg-[var(--paper-card)] text-[var(--ink)]"
+          >
+            {(Object.keys(FORMATS) as FilmFormat[]).map((f) => (
+              <option key={f} value={f}>
+                {FORMATS[f].label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div
+          className="relative bg-black border border-[var(--ink-border)] overflow-hidden mx-auto"
+          style={{ aspectRatio: `${dims.w} / ${dims.h}`, width: `min(100%, ${(68 * dims.w) / dims.h}vh)` }}
+        >
           <canvas ref={canvasRef} className="w-full h-full block" />
           {!playing && !recording && progress < 0.001 && (
             <button
@@ -533,7 +652,7 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
           {videoUrl && (
             <a
               href={videoUrl}
-              download={`KATA-story-film.${videoExt}`}
+              download={`KATA-${mode === 'promo' ? 'linkedin-promo' : 'story-film'}.${videoExt}`}
               className="kata-btn inline-flex items-center gap-1.5 px-4 py-2 text-sm"
             >
               <Download className="w-4 h-4" aria-hidden="true" />
@@ -562,6 +681,12 @@ export const StoryFilmModal: React.FC<StoryFilmModalProps> = ({ save, onClose })
               {Math.floor(total / 60)}:{String(Math.floor(total % 60)).padStart(2, '0')}
             </span>
           </div>
+          {videoUrl && videoExt === 'webm' && mode === 'promo' && (
+            <p className="mt-2 text-[11px] text-[var(--ink-muted)]">
+              LinkedIn needs MP4. Your browser saved WebM, so convert it free at cloudconvert.com, or run:
+              ffmpeg -i KATA-linkedin-promo.webm -c:v libx264 -pix_fmt yuv420p KATA-linkedin-promo.mp4
+            </p>
+          )}
           {canRecord && (
             <p className="mt-2 text-[11px] text-[var(--ink-muted)]">
               “Render Video” records the film in real time as a video with sound. Keep this tab open until it
